@@ -1,0 +1,17 @@
+{
+  "is-main": true,
+  "pre-build": [
+    {
+      "input": "auv.c",
+      "output": "auv.o",
+      "command": "gcc -c $input -o $output -Iinclude"
+    }
+  ],
+  "link": {
+    "native": {
+      "cc": "gcc",
+      "cc-flags": "src/auv.o -g",
+      "cc-link-flags": "-luv"
+    }
+  }
+}
