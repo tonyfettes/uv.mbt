@@ -10,7 +10,7 @@
   "link": {
     "native": {
       "cc": "gcc",
-      "cc-flags": "src/auv.o -g",
+      "cc-flags": "src/auv.o -g -fsanitize=address",
       "cc-link-flags": "-luv"
     }
   }

@@ -31,17 +31,7 @@ type Idle
 pub extern "c" fn Idle::new(loop_ : Loop) -> Idle = "auv_idle_new"
 
 ///|
-extern "c" fn Idle::_start(self : Idle, cb : (Idle) -> Unit) -> Int = "auv_idle_start"
-
-fn run_async(f : async () -> Unit) -> Unit = "%async.run"
-
-async fn suspend[T](k : ((T) -> Unit) -> Unit) -> T = "%async.suspend"
-
-pub async fn Idle::start(self : Idle) -> Idle {
-  suspend!!(fn (k) {
-    Idle::_start(self, k) |> ignore
-  })
-}
+pub extern "c" fn Idle::start(self : Idle, cb : (Idle) -> Unit) -> Int = "auv_idle_start"
 
 ///|
 pub extern "c" fn Idle::stop(self : Idle) -> Int = "auv_idle_stop"
