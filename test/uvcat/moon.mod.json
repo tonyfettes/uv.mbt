@@ -1,5 +1,5 @@
 {
-  "name": "tonyfettes/auv/test/tcp-echo-server",
+  "name": "tonyfettes/auv/test/uvcat",
   "version": "0.1.0",
   "readme": "README.md",
   "repository": "",

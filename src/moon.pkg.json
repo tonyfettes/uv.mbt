@@ -3,7 +3,7 @@
     {
       "input": "auv.c",
       "output": "auv.o",
-      "command": "gcc -g -c $input -o $output -Iinclude  -I/opt/homebrew/include"
+      "command": "gcc -g -c $input -o $output -Iinclude  -I/opt/homebrew/include -fsanitize=address"
     }
   ]
 }
