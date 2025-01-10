@@ -20,17 +20,19 @@
     return moonbit_uv_malloc(uv_##name##_t);                                   \
   }
 
+uv_loop_t *moonbit_uv_default_loop() { return uv_default_loop(); }
+
 uv_loop_t *moonbit_uv_loop_alloc() { return malloc(sizeof(uv_loop_t)); };
 
+void moonbit_uv_loop_free(uv_loop_t *loop) { free(loop); }
+
 int moonbit_uv_loop_init(uv_loop_t *loop) { return uv_loop_init(loop); }
+
+int moonbit_uv_loop_close(uv_loop_t *loop) { return uv_loop_close(loop); }
 
 int moonbit_uv_run(uv_loop_t *loop, uv_run_mode mode) {
   return uv_run(loop, mode);
 }
-
-int moonbit_uv_loop_close(uv_loop_t *loop) { return uv_loop_close(loop); }
-
-void moonbit_uv_loop_free(uv_loop_t *loop) { free(loop); }
 
 typedef struct moonbit_ffi_closure {
   struct moonbit_object header;
