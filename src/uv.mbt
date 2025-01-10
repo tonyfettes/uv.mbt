@@ -11,3 +11,6 @@ pub extern "c" fn moonbit_ffi_make_closure(code : Code, data : Data) -> Data = "
 fn init {
   moonbit_ffi_make_closure |> ignore
 }
+
+///|
+fn identity[T, U](value : T) -> U = "%identity"

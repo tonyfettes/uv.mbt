@@ -2,7 +2,10 @@
 type Fs
 
 ///|
-pub extern "c" fn fs_alloc() -> Fs = "auv_fs_alloc"
+impl ToReq for Fs with to_req(self : Fs) -> Req { identity(self) }
+
+///|
+pub extern "c" fn fs_alloc() -> Fs = "moonbit_uv_fs_alloc"
 
 ///|
 pub extern "c" fn fs_open(
@@ -12,7 +15,7 @@ pub extern "c" fn fs_open(
   flags : Int,
   mode : Int,
   cb : (Fs) -> Unit
-) -> Int = "auv_fs_open"
+) -> Int = "moonbit_uv_fs_open"
 
 ///|
 pub extern "c" fn fs_close(
@@ -20,15 +23,15 @@ pub extern "c" fn fs_close(
   req : Fs,
   file : Int64,
   cb : (Fs) -> Unit
-) -> Int = "auv_fs_close"
+) -> Int = "moonbit_uv_fs_close"
 
 ///|
-pub extern "c" fn fs_get_result(req : Fs) -> Int64 = "auv_fs_get_result"
+pub extern "c" fn fs_get_result(req : Fs) -> Int64 = "moonbit_uv_fs_get_result"
 
 ///|
 /// * Windows: HANLDE (void *)
 /// * Unix (Linux/macOS): ssize_t
-pub(readonly) typealias File = Int64
+pub typealias File = Int64
 
 ///|
 pub extern "c" fn fs_read(
@@ -38,7 +41,7 @@ pub extern "c" fn fs_read(
   bufs : FixedArray[Buf],
   offset : Int64,
   cb : (Fs) -> Unit
-) -> Int = "auv_fs_read"
+) -> Int = "moonbit_uv_fs_read"
 
 ///|
 pub extern "c" fn fs_write(
@@ -48,7 +51,7 @@ pub extern "c" fn fs_write(
   bufs : FixedArray[Buf],
   offset : Int64,
   cb : (Fs) -> Unit
-) -> Int = "auv_fs_write"
+) -> Int = "moonbit_uv_fs_write"
 
 ///|
 pub const O_RDONLY : Int = 0x0000
