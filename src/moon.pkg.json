@@ -1,17 +1,9 @@
 {
-  "is-main": true,
   "pre-build": [
     {
       "input": "auv.c",
       "output": "auv.o",
-      "command": "gcc -c $input -o $output -Iinclude"
+      "command": "gcc -g -c $input -o $output -Iinclude  -I/opt/homebrew/include"
     }
-  ],
-  "link": {
-    "native": {
-      "cc": "gcc",
-      "cc-flags": "src/auv.o -g -fsanitize=address",
-      "cc-link-flags": "-luv"
-    }
-  }
+  ]
 }
