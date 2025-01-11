@@ -4,22 +4,6 @@
 #include <string.h>
 #include <uv.h>
 
-#define moonbit_uv_decl_t(name)                                                \
-  typedef struct moonbit_uv_##name {                                           \
-    uv_##name##_t name;                                                        \
-  } moonbit_uv_##name##_t
-
-#define moonbit_uv_decl_cb_t(name, ...)                                        \
-  typedef struct moonbit_uv_##name##_cb {                                      \
-    struct moonbit_object header;                                              \
-    int32_t (*code)(struct moonbit_uv_##name##_cb *, __VA_ARGS__);             \
-  } moonbit_uv_##name##_cb_t
-
-#define moonbit_uv_impl_alloc(name)                                            \
-  uv_##name##_t *moonbit_uv_##name##_alloc() {                                 \
-    return moonbit_uv_malloc(uv_##name##_t);                                   \
-  }
-
 uv_loop_t *moonbit_uv_default_loop() { return uv_default_loop(); }
 
 uv_loop_t *moonbit_uv_loop_alloc() { return malloc(sizeof(uv_loop_t)); };
