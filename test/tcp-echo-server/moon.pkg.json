@@ -1,11 +1,4 @@
 {
   "is-main": true,
-  "import": ["tonyfettes/auv"],
-  "link": {
-    "native": {
-      "cc": "gcc",
-      "cc-flags": "../../src/auv.o -g -fsanitize=address",
-      "cc-link-flags": "-luv -L/opt/homebrew/lib"
-    }
-  }
+  "import": ["tonyfettes/uv"]
 }

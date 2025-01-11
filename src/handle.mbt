@@ -2,7 +2,7 @@
 type Handle
 
 ///|
-trait ToHandle {
+pub trait ToHandle {
   to_handle(Self) -> Handle
 }
 

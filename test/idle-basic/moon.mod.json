@@ -7,7 +7,7 @@
   "keywords": [],
   "description": "",
   "deps": {
-    "tonyfettes/auv": {
+    "tonyfettes/uv": {
       "path": "../.."
     }
   }

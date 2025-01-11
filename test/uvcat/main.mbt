@@ -6,19 +6,19 @@ async fn suspend[T, E : Error](f : ((T) -> Unit, (E) -> Unit) -> Unit) -> T!E = 
 
 ///|
 async fn open(
-  loop_ : @auv.Loop,
+  loop_ : @uv.Loop,
   path : Bytes,
   flags : Int,
   mode : Int
-) -> @auv.File!ErrorCode {
-  let req = @auv.fs_alloc()
+) -> @uv.File!ErrorCode {
+  let req = @uv.fs_alloc()
   suspend!!(fn(resolve, reject : (ErrorCode) -> Unit) {
-    @auv.fs_open(loop_, req, path, flags, mode, fn(req) {
-      let file = @auv.fs_get_result(req)
+    @uv.fs_open(loop_, req, path, flags, mode, fn(req) {
+      let file = @uv.fs_get_result(req)
       if file < 0 {
         reject(ErrorCode(file.to_int()))
       } else {
-        resolve(@auv.fs_get_result(req))
+        resolve(@uv.fs_get_result(req))
       }
     })
     |> ignore
@@ -37,21 +37,21 @@ fn fresh_id() -> Int {
 
 ///|
 async fn fs_read(
-  loop_ : @auv.Loop,
-  file : @auv.File,
-  bufs : FixedArray[@auv.Buf],
+  loop_ : @uv.Loop,
+  file : @uv.File,
+  bufs : FixedArray[@uv.Buf],
   offset : Int64
 ) -> Int64!ErrorCode {
   suspend!!(fn(resolve, reject) {
-    let req = @auv.fs_alloc()
+    let req = @uv.fs_alloc()
     let req_id = fresh_id()
     println("fs_read: \{req_id}")
-    @auv.fs_read(loop_, req, file, bufs, offset, fn(req) {
-      let n_read = @auv.fs_get_result(req)
+    @uv.fs_read(loop_, req, file, bufs, offset, fn(req) {
+      let n_read = @uv.fs_get_result(req)
       if n_read < 0 {
         reject(ErrorCode(n_read.to_int()))
       } else {
-        resolve(@auv.fs_get_result(req))
+        resolve(@uv.fs_get_result(req))
       }
       println("fs_read 1: \{req_id}")
     })
@@ -62,20 +62,20 @@ async fn fs_read(
 
 ///|
 async fn fs_write(
-  loop_ : @auv.Loop,
-  file : @auv.File,
-  bufs : FixedArray[@auv.Buf],
+  loop_ : @uv.Loop,
+  file : @uv.File,
+  bufs : FixedArray[@uv.Buf],
   offset : Int64
 ) -> Int64!ErrorCode {
   suspend!!(fn(resolve, reject) {
-    let req = @auv.fs_alloc()
+    let req = @uv.fs_alloc()
     println("fs_write")
-    @auv.fs_write(loop_, req, file, bufs, offset, fn(req) {
-      let n_write = @auv.fs_get_result(req)
+    @uv.fs_write(loop_, req, file, bufs, offset, fn(req) {
+      let n_write = @uv.fs_get_result(req)
       if n_write < 0 {
         reject(ErrorCode(n_write.to_int()))
       } else {
-        resolve(@auv.fs_get_result(req))
+        resolve(@uv.fs_get_result(req))
       }
       println("fs_write 1")
     })
@@ -88,12 +88,12 @@ async fn fs_write(
 type! ErrorCode Int
 
 ///|
-async fn fs_close(loop_ : @auv.Loop, file : @auv.File) -> Unit!ErrorCode {
+async fn fs_close(loop_ : @uv.Loop, file : @uv.File) -> Unit!ErrorCode {
   suspend!!(fn(resolve, reject) {
-    let req = @auv.fs_alloc()
+    let req = @uv.fs_alloc()
     println("fs_close")
-    @auv.fs_close(loop_, req, file, fn(req) {
-      let rc = @auv.fs_get_result(req)
+    @uv.fs_close(loop_, req, file, fn(req) {
+      let rc = @uv.fs_get_result(req)
       if rc < 0 {
         reject(ErrorCode(rc.to_int()))
       } else {
@@ -111,23 +111,23 @@ fn identity[T, U](x : T) -> U = "%identity"
 
 ///|
 fn main {
-  let loop_ = @auv.loop_alloc()
+  let loop_ = @uv.loop_alloc()
   run_async(fn!() {
     try {
-      @auv.loop_init(loop_) |> ignore
-      let file = open!!(loop_, b"main.mbt", @auv.O_RDONLY, 0)
+      @uv.loop_init(loop_) |> ignore
+      let file = open!!(loop_, b"main.mbt", @uv.O_RDONLY, 0)
       let buffer = FixedArray::make(1024, (0 : Byte))
-      let iov = @auv.buf_alloc()
-      let iovs : FixedArray[@auv.Buf] = FixedArray::make(1, 0L) |> identity
+      let iov = @uv.buf_alloc()
+      let iovs : FixedArray[@uv.Buf] = FixedArray::make(1, 0L) |> identity
       iovs[0] = iov
-      @auv.buf_init(iov, buffer) |> ignore
+      @uv.buf_init(iov, buffer) |> ignore
       loop fs_read!!(loop_, file, iovs, -1) {
         0 => {
           fs_close!!(loop_, file)
           return
         }
         n_read => {
-          @auv.buf_set_len(iov, n_read.reinterpret_as_uint64()) |> ignore
+          @uv.buf_set_len(iov, n_read.reinterpret_as_uint64()) |> ignore
           // let nwritten = fs_write!!(loop_, 0, iovs, -1)
           // if nwritten < nread {
           //   fs_close!!(loop_, file)
@@ -136,12 +136,12 @@ fn main {
           continue fs_read!!(loop_, file, iovs, -1)
         }
       }
-      @auv.buf_free(iov)
+      @uv.buf_free(iov)
     } catch {
       _ => println("error")
     }
   })
-  @auv.loop_run(loop_, 0) |> ignore
-  @auv.loop_close(loop_) |> ignore
-  @auv.loop_free(loop_) |> ignore
+  @uv.run(loop_, 0) |> ignore
+  @uv.loop_close(loop_) |> ignore
+  @uv.loop_free(loop_) |> ignore
 }

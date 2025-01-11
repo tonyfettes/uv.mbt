@@ -2,12 +2,12 @@
 type Stream
 
 ///|
-trait ToStream {
+pub trait ToStream {
   to_stream(Self) -> Stream
 }
 
 ///|
-impl ToHandle for Stream with to_handle(self : Stream) -> Handle {
+pub impl ToHandle for Stream with to_handle(self : Stream) -> Handle {
   identity(self)
 }
 

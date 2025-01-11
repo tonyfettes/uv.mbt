@@ -5,7 +5,7 @@ type Idle
 impl ToHandle for Idle with to_handle(self : Idle) -> Handle { identity(self) }
 
 ///|
-pub extern "c" fn idle_alloc(loop_ : Loop) -> Idle = "moonbit_uv_idle_alloc"
+pub extern "c" fn idle_alloc() -> Idle = "moonbit_uv_idle_alloc"
 
 ///|
 pub extern "c" fn idle_init(loop_ : Loop, idle : Idle) -> Int = "moonbit_uv_idle_init"
