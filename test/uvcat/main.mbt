@@ -129,7 +129,7 @@ fn main {
         n_read => {
           @uv.buf_set_len(iov, n_read.reinterpret_as_uint64()) |> ignore
           let nwritten = fs_write!!(loop_, 0, iovs, -1)
-          if nwritten < nread {
+          if nwritten < n_read {
             fs_close!!(loop_, file)
             return
           }

@@ -6,4 +6,4 @@ add_custom_command(
 
 add_executable(idle-basic target/native/release/build/idle-basic.c)
 install(TARGETS idle-basic RUNTIME DESTINATION "${CMAKE_SOURCE_DIR}/bin")
-target_link_libraries(idle-basic PRIVATE uv.mbt PkgConfig::uv moonbit)
+target_link_libraries(idle-basic PRIVATE uv.mbt uv_a moonbit)
