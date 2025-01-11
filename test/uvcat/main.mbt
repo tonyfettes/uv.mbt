@@ -128,11 +128,11 @@ fn main {
         }
         n_read => {
           @uv.buf_set_len(iov, n_read.reinterpret_as_uint64()) |> ignore
-          // let nwritten = fs_write!!(loop_, 0, iovs, -1)
-          // if nwritten < nread {
-          //   fs_close!!(loop_, file)
-          //   return
-          // }
+          let nwritten = fs_write!!(loop_, 0, iovs, -1)
+          if nwritten < nread {
+            fs_close!!(loop_, file)
+            return
+          }
           continue fs_read!!(loop_, file, iovs, -1)
         }
       }
