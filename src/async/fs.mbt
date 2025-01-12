@@ -1,0 +1,153 @@
+///|
+struct File {
+  loop_ : Loop
+  file : @uv.File
+}
+
+///|
+pub async fn Loop::open(
+  self : Loop,
+  path : String,
+  flags : Int,
+  mode : Int
+) -> File!Errno {
+  async_suspend!!(fn(
+    resolve : (File) -> Unit,
+    reject : (Errno) -> Unit
+  ) -> Unit {
+    let req = @uv.fs_alloc()
+    let path = string_to_utf8(path)
+    let result = @uv.fs_open(self._, req, path, flags, mode, fn(
+      req
+    ) {
+      let result = @uv.fs_get_result(req)
+      if result < 0 {
+        reject(Errno(result.to_int()))
+      } else {
+        resolve({ loop_: self, file: result })
+      }
+    })
+    if result < 0 {
+      reject(Errno(result))
+    }
+  })
+}
+
+///|
+fn identity[T, U](x : T) -> U = "%identity"
+
+///|
+priv struct MutableBytesView {
+  bytes : Bytes
+  start : Int
+  end : Int
+}
+
+///|
+fn MutableBytesView::of_array_view(view : ArrayView[Byte]) -> MutableBytesView {
+  identity(view)
+}
+
+///|
+fn MutableBytesView::of_bytes_view(view : BytesView) -> MutableBytesView {
+  identity(view)
+}
+
+///|
+fn MutableBytesView::to_bytes_view(self : MutableBytesView) -> BytesView {
+  identity(self)
+}
+
+///|
+fn MutableBytesView::op_as_view(
+  self : MutableBytesView,
+  start~ : Int = 0,
+  end~ : Int = self.end - self.start
+) -> MutableBytesView {
+  MutableBytesView::{
+    bytes: self.bytes,
+    start: self.start + start,
+    end: self.start + end,
+  }
+}
+
+///|
+pub async fn File::read(self : File, offset~ : Int64 = -1) -> Bytes!Errno {
+  async_suspend!!(fn(
+    resolve : (Bytes) -> Unit,
+    reject : (Errno) -> Unit
+  ) -> Unit {
+    let { loop_, file } = self
+    let req = @uv.fs_alloc()
+    let buf = @uv.buf_alloc()
+    let bytes = Bytes::make(1024, (0 : Byte))
+    @uv.buf_init(buf, bytes, 0)
+    let bufs : FixedArray[@uv.Buf] = FixedArray::make(1, 0L) |> identity
+    bufs[0] = buf
+    let result = @uv.fs_read(loop_._, req, file, bufs, offset, fn(req) {
+      let result = @uv.fs_get_result(req).to_int()
+      if result < 0 {
+        reject(Errno(result))
+      } else {
+        resolve(bytes)
+      }
+    })
+    if result < 0 {
+      reject(Errno(result))
+    }
+  })
+}
+
+///|
+pub async fn File::write(
+  self : File,
+  bytes : BytesView,
+  offset~ : Int64 = -1
+) -> BytesView!Errno {
+  async_suspend!!(fn(
+    resolve : (BytesView) -> Unit,
+    reject : (Errno) -> Unit
+  ) -> Unit {
+    let { loop_, file } = self
+    let req = @uv.fs_alloc()
+    let buf = @uv.buf_alloc()
+    let bytes = MutableBytesView::of_bytes_view(bytes)
+    @uv.buf_init(buf, bytes.bytes, bytes.start)
+    let bufs : FixedArray[@uv.Buf] = FixedArray::make(1, 0L) |> identity
+    bufs[0] = buf
+    let result = @uv.fs_write(loop_._, req, file, bufs, offset, fn(req) {
+      let result = @uv.fs_get_result(req).to_int()
+      if result < 0 {
+        reject(Errno(result))
+      } else {
+        let bytes = bytes.to_bytes_view()
+        resolve(bytes[:result])
+      }
+    })
+    if result < 0 {
+      reject(Errno(result))
+    }
+  })
+}
+
+///|
+pub async fn File::close(self : File) -> Unit!Errno {
+  async_suspend!!(fn(
+    resolve : (Unit) -> Unit,
+    reject : (Errno) -> Unit
+  ) -> Unit {
+    let { loop_, file } = self
+    let req = @uv.fs_alloc()
+    let result = @uv.fs_close(loop_._, req, file, fn(req) {
+      let result = @uv.fs_get_result(req)
+      if result < 0 {
+        reject(Errno(result.to_int()))
+      } else {
+        resolve(())
+      }
+    })
+    if result < 0 {
+      reject(Errno(result))
+    }
+  })
+}
