@@ -5,21 +5,48 @@ struct File {
 }
 
 ///|
-pub async fn Loop::open(
+pub fn Loop::stdout(self : Loop) -> File {
+  File::{ loop_: self, file: @uv.STDOUT.to_int64() }
+}
+
+///|
+pub(all) enum OpenFlag {
+  ReadOnly
+  WriteOnly
+  ReadWrite
+}
+
+///|
+pub impl ToOpenFlags for OpenFlag with to_open_flags(self : OpenFlag) -> OpenFlags {
+  match self {
+    ReadOnly => OpenFlags(@uv.FS_O_RDONLY)
+    WriteOnly => OpenFlags(@uv.FS_O_WRONLY)
+    ReadWrite => OpenFlags(@uv.FS_O_RDWR)
+  }
+}
+
+///|
+type OpenFlags Int
+
+///|
+trait ToOpenFlags {
+  to_open_flags(Self) -> OpenFlags
+}
+
+///|
+pub async fn Loop::open[T : ToOpenFlags](
   self : Loop,
-  path : String,
-  flags : Int,
+  path : Bytes,
+  flags : T,
   mode : Int
 ) -> File!Errno {
+  let flags = flags.to_open_flags()
   async_suspend!!(fn(
     resolve : (File) -> Unit,
     reject : (Errno) -> Unit
   ) -> Unit {
     let req = @uv.fs_alloc()
-    let path = string_to_utf8(path)
-    let result = @uv.fs_open(self._, req, path, flags, mode, fn(
-      req
-    ) {
+    let result = @uv.fs_open(self._, req, path, flags._, mode, fn(req) {
       let result = @uv.fs_get_result(req)
       if result < 0 {
         reject(Errno(result.to_int()))
@@ -72,9 +99,9 @@ fn MutableBytesView::op_as_view(
 }
 
 ///|
-pub async fn File::read(self : File, offset~ : Int64 = -1) -> Bytes!Errno {
+pub async fn File::read(self : File, offset~ : Int64 = -1) -> BytesView!Errno {
   async_suspend!!(fn(
-    resolve : (Bytes) -> Unit,
+    resolve : (BytesView) -> Unit,
     reject : (Errno) -> Unit
   ) -> Unit {
     let { loop_, file } = self
@@ -89,7 +116,7 @@ pub async fn File::read(self : File, offset~ : Int64 = -1) -> Bytes!Errno {
       if result < 0 {
         reject(Errno(result))
       } else {
-        resolve(bytes)
+        resolve(bytes[:result])
       }
     })
     if result < 0 {
