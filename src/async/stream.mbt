@@ -23,15 +23,40 @@ pub async fn Stream::listen(self : Stream, backlog : Int) -> Unit!Errno {
 }
 
 ///|
-pub async fn Stream::read_start(self : Stream) -> BytesView!Errno {
+pub async fn Stream::read(self : Stream) -> BytesView!Errno {
   async_suspend!!(fn(resolve, reject) {
     let alloc_cb = fn(_, n : UInt64, buf) {
-      @uv.buf_init(buf, Bytes::make(n.to_int(), (0 : Byte)), 0)
+      let bytes = Bytes::make(n.to_int(), (0 : Byte))
+      @uv.buf_init(buf, bytes, 0, bytes.length())
     }
     let read_cb = fn(_, n : Int64, buf) {
-      resolve(@uv.buf_get(buf, 0, n.to_int()))
+      @uv.read_stop(self._) |> ignore()
+      resolve(@uv.buf_get(buf)[:n.to_int()])
     }
     let status = @uv.read_start(self._, alloc_cb, read_cb)
+    if status < 0 {
+      reject(Errno(status))
+    }
+  })
+}
+
+///|
+pub async fn Stream::write(self : Stream, bytes : BytesView) -> BytesView!Errno {
+  async_suspend!!(fn(resolve, reject) {
+    let buf = @uv.buf_alloc()
+    let bytes = MutableBytesView::of_bytes_view(bytes)
+    @uv.buf_init(buf, bytes.bytes, bytes.start, bytes.end - bytes.start)
+    let bufs : FixedArray[@uv.Buf] = FixedArray::make(1, 0L) |> identity
+    bufs[0] = buf
+    let write_cb = fn(_, status) {
+      if status < 0 {
+        reject(Errno(status))
+      } else {
+        resolve(bytes.to_bytes_view()[:status])
+      }
+    }
+    let write = @uv.write_alloc()
+    let status = @uv.write(write, self._, bufs, write_cb)
     if status < 0 {
       reject(Errno(status))
     }

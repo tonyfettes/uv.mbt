@@ -108,7 +108,7 @@ pub async fn File::read(self : File, offset~ : Int64 = -1) -> BytesView!Errno {
     let req = @uv.fs_alloc()
     let buf = @uv.buf_alloc()
     let bytes = Bytes::make(1024, (0 : Byte))
-    @uv.buf_init(buf, bytes, 0)
+    @uv.buf_init(buf, bytes, 0, bytes.length())
     let bufs : FixedArray[@uv.Buf] = FixedArray::make(1, 0L) |> identity
     bufs[0] = buf
     let result = @uv.fs_read(loop_._, req, file, bufs, offset, fn(req) {
@@ -139,7 +139,7 @@ pub async fn File::write(
     let req = @uv.fs_alloc()
     let buf = @uv.buf_alloc()
     let bytes = MutableBytesView::of_bytes_view(bytes)
-    @uv.buf_init(buf, bytes.bytes, bytes.start)
+    @uv.buf_init(buf, bytes.bytes, bytes.start, bytes.end - bytes.start)
     let bufs : FixedArray[@uv.Buf] = FixedArray::make(1, 0L) |> identity
     bufs[0] = buf
     let result = @uv.fs_write(loop_._, req, file, bufs, offset, fn(req) {

@@ -17,12 +17,18 @@ pub fn Loop::tcp(self : Loop) -> Tcp!Errno {
 }
 
 ///|
-pub fn Tcp::bind(
-  self : Tcp,
-  sock_addr : @uv.SockaddrIn,
-  flags : Int
-) -> Unit!Errno {
-  @uv.tcp_bind(self.tcp, sock_addr, flags) |> errno!()
+type SockaddrIn @uv.SockaddrIn
+
+///|
+pub fn ip4_addr(ip : Bytes, port : Int) -> SockaddrIn {
+  let addr = @uv.sockaddr_in_alloc()
+  @uv.ip4_addr(ip, port, addr)
+  addr
+}
+
+///|
+pub fn Tcp::bind(self : Tcp, sock_addr : SockaddrIn, flags : Int) -> Unit!Errno {
+  @uv.tcp_bind(self.tcp, sock_addr._, flags) |> errno!()
 }
 
 ///|
@@ -40,4 +46,14 @@ pub fn Tcp::accept(self : Tcp) -> Tcp!Errno {
   } else {
     other
   }
+}
+
+///|
+pub async fn Tcp::read(self : Tcp) -> BytesView!Errno {
+  self.to_stream().read!!()
+}
+
+///|
+pub async fn Tcp::write(self : Tcp, bytes : BytesView) -> BytesView!Errno {
+  self.to_stream().write!!(bytes)
 }
