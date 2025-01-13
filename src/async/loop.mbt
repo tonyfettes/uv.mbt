@@ -1,3 +1,4 @@
+///|
 type Loop @uv.Loop
 
 ///|
@@ -19,4 +20,9 @@ pub fn run[E : Error](f :  async(Loop) -> Unit!E) -> Unit! {
     None => ()
     Some(error) => raise error
   }
+}
+
+///|
+pub fn Loop::alive(self : Loop) -> Bool {
+  @uv.loop_alive(self._) != 0
 }
