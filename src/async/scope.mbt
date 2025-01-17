@@ -57,7 +57,6 @@ pub async fn Loop::scope(self : Loop, f :  async(Scope) -> Unit!) -> Unit! {
       }
     })
   })
-  println("Loop::scope: after async_suspend!!")
 }
 
 ///|
