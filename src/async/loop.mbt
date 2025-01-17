@@ -10,11 +10,14 @@ pub fn run[E : Error](f :  async(Loop) -> Unit!E) -> Unit! {
     try {
       f!!(loop_)
     } catch {
-      err => error = Some(err)
+      err => {
+        error = Some(err)
+        @uv.stop(loop_) |> ignore()
+      }
     }
   })
-  @uv.run(loop_, @uv.UV_RUN_DEFAULT) |> errno!()
-  @uv.loop_close(loop_) |> errno!()
+  @uv.run(loop_, @uv.RUN_DEFAULT) |> ignore()
+  @uv.loop_close(loop_) |> ignore()
   @uv.loop_free(loop_)
   match error {
     None => ()

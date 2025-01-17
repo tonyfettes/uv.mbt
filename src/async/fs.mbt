@@ -99,7 +99,16 @@ fn MutableBytesView::op_as_view(
 }
 
 ///|
-pub async fn File::read(self : File, offset~ : Int64 = -1) -> BytesView!Errno {
+pub async fn File::read(
+  self : File,
+  length~ : Int = 1024,
+  offset~ : Int64 = -1
+) -> BytesView!Errno {
+  let scope = active_scope.val
+  match scope {
+    Some({ canceled: true, .. }) => raise Errno(@uv.EAI_CANCELED)
+    _ => ()
+  }
   async_suspend!!(fn(
     resolve : (BytesView) -> Unit,
     reject : (Errno) -> Unit
@@ -107,12 +116,17 @@ pub async fn File::read(self : File, offset~ : Int64 = -1) -> BytesView!Errno {
     let { loop_, file } = self
     let req = @uv.fs_alloc()
     let buf = @uv.buf_alloc()
-    let bytes = Bytes::make(1024, (0 : Byte))
+    let bytes = Bytes::make(length, (0 : Byte))
     @uv.buf_init(buf, bytes, 0, bytes.length())
     let bufs : FixedArray[@uv.Buf] = FixedArray::make(1, 0L) |> identity
     bufs[0] = buf
     let result = @uv.fs_read(loop_._, req, file, bufs, offset, fn(req) {
+      match scope {
+        Some({ canceled: true, .. }) => reject(Errno(@uv.EAI_CANCELED))
+        _ => ()
+      }
       let result = @uv.fs_get_result(req).to_int()
+      active_scope.val = scope
       if result < 0 {
         reject(Errno(result))
       } else {
