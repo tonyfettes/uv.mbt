@@ -46,8 +46,7 @@ pub async fn Stream::write(self : Stream, bytes : BytesView) -> BytesView!Errno 
     let buf = @uv.buf_alloc()
     let bytes = MutableBytesView::of_bytes_view(bytes)
     @uv.buf_init(buf, bytes.bytes, bytes.start, bytes.end - bytes.start)
-    let bufs : FixedArray[@uv.Buf] = FixedArray::make(1, 0L) |> identity
-    bufs[0] = buf
+    let bufs : FixedArray[@uv.Buf] = [buf]
     let write_cb = fn(_, status) {
       if status < 0 {
         reject(Errno(status))
