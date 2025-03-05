@@ -46,11 +46,11 @@ pub fn Tcp::accept(self : Tcp) -> Tcp!Errno {
 }
 
 ///|
-pub async fn Tcp::read(self : Tcp) -> BytesView!Errno {
+pub async fn Tcp::read(self : Tcp) -> @bytes.View!Errno {
   self.to_stream().read!!()
 }
 
 ///|
-pub async fn Tcp::write(self : Tcp, bytes : BytesView) -> BytesView!Errno {
+pub async fn Tcp::write(self : Tcp, bytes : @bytes.View) -> @bytes.View!Errno {
   self.to_stream().write!!(bytes)
 }

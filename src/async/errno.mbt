@@ -14,8 +14,9 @@ let errno_map : Map[Int, String] = Map::new()
 ///|
 pub impl Show for Errno with output(self : Errno, logger : &Logger) -> Unit {
   let Errno(errno) = self
-  guard let None = errno_map.get(errno) else {
-    Some(message) => logger.write_string(message)
+  if errno_map.get(errno) is Some(message) {
+    logger.write_string(message)
+    return
   }
   let message = Bytes::make(256, 0)
   @uv.strerror_r(errno, message)

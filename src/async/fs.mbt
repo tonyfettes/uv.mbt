@@ -74,13 +74,13 @@ priv struct MutableBytesView {
 fn MutableBytesView::of_array_view(view : ArrayView[Byte]) -> MutableBytesView = "%identity"
 
 ///|
-fn MutableBytesView::of_bytes_view(view : BytesView) -> MutableBytesView {
+fn MutableBytesView::of_bytes_view(view : @bytes.View) -> MutableBytesView {
   let view_ptr : VoidPtr = identity(view)
   identity(view_ptr)
 }
 
 ///|
-fn MutableBytesView::to_bytes_view(self : MutableBytesView) -> BytesView {
+fn MutableBytesView::to_bytes_view(self : MutableBytesView) -> @bytes.View {
   let view_ptr : VoidPtr = identity(self)
   identity(view_ptr)
 }
@@ -103,9 +103,9 @@ pub async fn File::read(
   self : File,
   length~ : Int = 1024,
   offset~ : Int64 = -1
-) -> BytesView!Errno {
+) -> @bytes.View!Errno {
   async_suspend!!(fn(
-    resolve : (BytesView) -> Unit,
+    resolve : (@bytes.View) -> Unit,
     reject : (Errno) -> Unit
   ) -> Unit {
     let { loop_, file } = self
@@ -129,16 +129,16 @@ pub async fn File::read(
 }
 
 ///|
-type VoidPtr
+priv extern type VoidPtr
 
 ///|
 pub async fn File::write(
   self : File,
-  bytes : BytesView,
+  bytes : @bytes.View,
   offset~ : Int64 = -1
-) -> BytesView!Errno {
+) -> @bytes.View!Errno {
   async_suspend!!(fn(
-    resolve : (BytesView) -> Unit,
+    resolve : (@bytes.View) -> Unit,
     reject : (Errno) -> Unit
   ) -> Unit {
     let { loop_, file } = self

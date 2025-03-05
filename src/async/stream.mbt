@@ -2,7 +2,7 @@
 type Stream @uv.Stream
 
 ///|
-trait ToStream {
+priv trait ToStream {
   to_stream(Self) -> Stream
 }
 
@@ -23,7 +23,7 @@ pub async fn Stream::listen(self : Stream, backlog : Int) -> Unit!Errno {
 }
 
 ///|
-pub async fn Stream::read(self : Stream) -> BytesView!Errno {
+pub async fn Stream::read(self : Stream) -> @bytes.View!Errno {
   async_suspend!!(fn(resolve, reject) {
     let alloc_cb = fn(_, n : UInt64, buf) {
       let bytes = Bytes::make(n.to_int(), (0 : Byte))
@@ -41,7 +41,7 @@ pub async fn Stream::read(self : Stream) -> BytesView!Errno {
 }
 
 ///|
-pub async fn Stream::write(self : Stream, bytes : BytesView) -> BytesView!Errno {
+pub async fn Stream::write(self : Stream, bytes : @bytes.View) -> @bytes.View!Errno {
   async_suspend!!(fn(resolve, reject) {
     let buf = @uv.buf_alloc()
     let bytes = MutableBytesView::of_bytes_view(bytes)
