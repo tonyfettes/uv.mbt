@@ -45,7 +45,7 @@ pub async fn Stream::write(self : Stream, bytes : @bytes.View) -> @bytes.View!Er
   async_suspend!!(fn(resolve, reject) {
     let buf = @uv.buf_alloc()
     let bytes = MutableBytesView::of_bytes_view(bytes)
-    @uv.buf_init(buf, bytes.bytes, bytes.start, bytes.end - bytes.start)
+    @uv.buf_init(buf, bytes.bytes, bytes.start, bytes.len - bytes.start)
     let bufs : FixedArray[@uv.Buf] = [buf]
     let write_cb = fn(_, status) {
       if status < 0 {

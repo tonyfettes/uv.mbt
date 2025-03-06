@@ -67,7 +67,7 @@ fn identity[T, U](x : T) -> U = "%identity"
 priv struct MutableBytesView {
   bytes : Bytes
   start : Int
-  end : Int
+  len : Int
 }
 
 ///|
@@ -89,13 +89,13 @@ fn MutableBytesView::to_bytes_view(self : MutableBytesView) -> @bytes.View {
 fn MutableBytesView::op_as_view(
   self : MutableBytesView,
   start~ : Int = 0,
-  end~ : Int = self.end - self.start
+  end? : Int
 ) -> MutableBytesView {
-  MutableBytesView::{
-    bytes: self.bytes,
-    start: self.start + start,
-    end: self.start + end,
+  let len = match end {
+    None => self.len
+    Some(end) => end - self.start
   }
+  MutableBytesView::{ bytes: self.bytes, start: self.start + start, len }
 }
 
 ///|
@@ -145,7 +145,7 @@ pub async fn File::write(
     let req = @uv.fs_alloc()
     let buf = @uv.buf_alloc()
     let bytes = MutableBytesView::of_bytes_view(bytes)
-    @uv.buf_init(buf, bytes.bytes, bytes.start, bytes.end - bytes.start)
+    @uv.buf_init(buf, bytes.bytes, bytes.start, bytes.len)
     let bufs : FixedArray[@uv.Buf] = [buf]
     let result = @uv.fs_write(loop_._, req, file, bufs, offset, fn(req) {
       let result = @uv.fs_get_result(req).to_int()
@@ -153,7 +153,7 @@ pub async fn File::write(
         reject(Errno(result))
       } else {
         let bytes = bytes.to_bytes_view()
-        resolve(bytes[:result])
+        resolve(bytes[result:])
       }
     })
     if result < 0 {
