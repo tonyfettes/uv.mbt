@@ -2,12 +2,12 @@
 type Stream @uv.Stream
 
 ///|
-priv trait ToStream {
+pub trait ToStream {
   to_stream(Self) -> Stream
 }
 
 ///|
-pub async fn Stream::listen(self : Stream, backlog : Int) -> Unit!Errno {
+pub async fn ToStream::listen(self : Stream, backlog : Int) -> Unit!Errno {
   async_suspend!!(fn(resolve, reject) {
     let r = @uv.listen(self._, backlog, fn(_stream, status) {
       if status < 0 {
