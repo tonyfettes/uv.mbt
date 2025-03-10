@@ -2,7 +2,7 @@
 type Stream @uv.Stream
 
 ///|
-pub trait ToStream {
+priv trait ToStream {
   to_stream(Self) -> Stream
 }
 
