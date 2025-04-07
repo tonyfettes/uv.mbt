@@ -213,7 +213,8 @@ def update_moon_pkg_json(project: Project, path: Path):
     moon_pkg_json = json.loads(path.read_text())
     native_stubs = []
     for copied in project.copied:
-        native_stubs.append(copied.as_posix())
+        if copied.suffix == ".c":
+            native_stubs.append(copied.as_posix())
     native_stubs.sort()
     moon_pkg_json["native-stub"] = [*native_stubs, "uv.c"]
     # has_pre_build = False
