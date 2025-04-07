@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from typing import Literal, Optional
 from pathlib import Path, PurePosixPath
 import re
