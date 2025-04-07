@@ -188,7 +188,7 @@
         "uv#src#win#winapi.c",
         "uv#src#win#winsock.c"
       ],
-      "command": "python scripts/prepare.py"
+      "command": "scripts/prepare.py"
     }
   ]
 }

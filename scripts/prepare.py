@@ -221,7 +221,7 @@ def update_moon_pkg_json(project: Project, path: Path):
     if "pre-build" not in moon_pkg_json:
         moon_pkg_json["pre-build"] = []
     for task in moon_pkg_json["pre-build"]:
-        if "command" in task and task["command"] == "python scripts/prepare.py":
+        if "command" in task and task["command"] == "scripts/prepare.py":
             task["output"] = native_stubs
             has_pre_build = True
     if not has_pre_build:
@@ -229,7 +229,7 @@ def update_moon_pkg_json(project: Project, path: Path):
             {
                 "input": [],
                 "output": native_stubs,
-                "command": "python scripts/prepare.py",
+                "command": "scripts/prepare.py",
             }
         )
     path.write_text(json.dumps(moon_pkg_json, indent=2) + "\n")
