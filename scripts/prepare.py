@@ -67,7 +67,7 @@ class Project:
                     continue
                 relocated = self.mangle(resolved)
                 if not (self.target / relocated).exists():
-                    self.copy(resolved, relocate=False)
+                    self.copy(resolved, prepare_defines=False, relocate=False)
                     headers.append(resolved)
                 return relocated
             return header
@@ -81,7 +81,7 @@ class Project:
         content = re.sub(r'#(?P<indent>\s*)include "(?P<header>.*?)"', replace, content)
 
         for source in headers:
-            self.copy(source)
+            self.copy(source, prepare_defines=False)
 
         return content
 
@@ -91,10 +91,11 @@ class Project:
 #endif
 """
 
-    def copy(self, source: Path, relocate: bool = True, condition: Optional[str] = None):
+    def copy(self, source: Path, prepare_defines : bool = True, relocate: bool = True, condition: Optional[str] = None):
         target = self.mangle(source)
         content = (self.source / source).read_text()
-        content = defines + content
+        if prepare_defines:
+            content = defines + content
         if relocate:
             content = self.relocate(source, content)
         if condition is not None:
