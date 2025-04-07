@@ -27,6 +27,10 @@ jobs:
       - name: Update mooncakes.io index
         run: moon update
 
+      - name: Prepare C files
+        run: |
+          python scripts/prepare.py
+
       - name: Run tests
         run: |
           moon check --target native -v
