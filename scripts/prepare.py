@@ -93,9 +93,15 @@ class Project:
 #endif
 """
 
-    def copy(self, source: Path, prepare_defines : bool = True, relocate: bool = True, condition: Optional[str] = None):
+    def copy(
+        self,
+        source: Path,
+        prepare_defines: bool = True,
+        relocate: bool = True,
+        condition: Optional[str] = None,
+    ):
         target = self.mangle(source)
-        content = (self.source / source).read_text()
+        content = (self.source / source).read_text(encoding="utf-8")
         if prepare_defines:
             content = defines + content
         if relocate:
@@ -103,7 +109,7 @@ class Project:
         if condition is not None:
             content = self.condition(condition, content)
         print(f"COPY {self.source / source} -> {self.target / target}")
-        (self.target / target).write_text(content)
+        (self.target / target).write_text(content, encoding="utf-8", newline="\n")
         self.copied.add(target)
 
 
@@ -212,7 +218,7 @@ def configure(project: Project):
 
 
 def update_moon_pkg_json(project: Project, path: Path):
-    moon_pkg_json = json.loads(path.read_text())
+    moon_pkg_json = json.loads(path.read_text(encoding="utf-8"))
     native_stubs = []
     for copied in project.copied:
         if copied.suffix == ".c":
@@ -234,7 +240,9 @@ def update_moon_pkg_json(project: Project, path: Path):
                 "command": "scripts/prepare.py",
             }
         )
-    path.write_text(json.dumps(moon_pkg_json, indent=2) + "\n")
+    path.write_text(
+        json.dumps(moon_pkg_json, indent=2) + "\n", encoding="utf8", newline="\n"
+    )
 
 
 def main():
