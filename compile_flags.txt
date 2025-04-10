@@ -1,0 +1,7 @@
+-I/home/tonyfettes/.local/share/moon/include
+-std=c11
+-xc
+-Wpedantic
+-Wextra
+-Wall
+-Wno-dollar-in-identifier-extension
