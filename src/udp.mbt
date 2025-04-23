@@ -38,6 +38,21 @@ pub fn Udp::connect[Sockaddr : ToSockaddr](
 }
 
 ///|
+extern "c" fn uv_udp_bind(handle : Udp, addr : Sockaddr, flags : UInt) -> Int = "moonbit_uv_udp_bind"
+
+///|
+pub fn Udp::bind[Sockaddr : ToSockaddr](
+  self : Udp,
+  addr : Sockaddr,
+  flags : UdpFlags
+) -> Unit!Errno {
+  let result = uv_udp_bind(self, addr.to_sockaddr(), flags._)
+  if result < 0 {
+    raise Errno::of_int(result)
+  }
+}
+
+///|
 type UdpSend
 
 ///|
@@ -101,19 +116,15 @@ pub fn Udp::send[Sockaddr : ToSockaddr](
 extern "c" fn uv_udp_recv_start(
   udp : Udp,
   alloc_cb : (Handle, UInt64, @c.Pointer[Int], @c.Pointer[Int]) -> Bytes,
-  recv_cb : (Udp, Int64, Bytes?, Int, Int) -> Unit,
-  socket : Sockaddr,
-  flag : UInt
+  recv_cb : (Udp, Int64, Bytes?, Int, Int, Sockaddr, UInt) -> Unit
 ) -> Int = "moonbit_uv_read_start"
 
 ///|
-pub fn Udp::recv_start[SocketAddr : ToSockaddr](
+pub fn Udp::recv_start(
   self : Udp,
   alloc_cb : (Handle, Int) -> @bytes.View,
-  read_cb : (Udp, Int, @bytes.View) -> Unit,
-  error_cb : (Udp, Errno) -> Unit,
-  addr : SocketAddr,
-  flags : UdpFlags
+  recv_cb : (Udp, Int, @bytes.View, Sockaddr, UdpFlags) -> Unit,
+  error_cb : (Udp, Errno) -> Unit
 ) -> Unit!Errno {
   fn uv_alloc_cb(
     handle : Handle,
@@ -132,22 +143,24 @@ pub fn Udp::recv_start[SocketAddr : ToSockaddr](
     nread : Int64,
     buf_data : Bytes?,
     buf_offset : Int,
-    buf_length : Int
+    buf_length : Int,
+    addr : Sockaddr,
+    flags : UInt
   ) -> Unit {
     if nread < 0 {
       error_cb(udp, Errno::of_int(nread.to_int()))
     } else {
-      read_cb(udp, nread.to_int(), buf_data.unwrap()[buf_offset:buf_length])
+      recv_cb(
+        udp,
+        nread.to_int(),
+        buf_data.unwrap()[buf_offset:buf_length],
+        addr,
+        flags,
+      )
     }
   }
 
-  let result = uv_udp_recv_start(
-    self,
-    uv_alloc_cb,
-    uv_recv_cb,
-    addr.to_sockaddr(),
-    flags._,
-  )
+  let result = uv_udp_recv_start(self, uv_alloc_cb, uv_recv_cb)
   if result < 0 {
     raise Errno::of_int(result)
   }

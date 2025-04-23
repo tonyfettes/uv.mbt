@@ -2,17 +2,21 @@
 fn main {
   try {
     let uv = @uv.Loop::new!()
-    let socket = @uv.Udp::new!(uv)
+    let in_socket = @uv.Udp::new!(uv)
+    let out_socket = @uv.Udp::new!(uv)
     let addr : @uv.SockaddrIn = @uv.ip4_addr("0.0.0.0", 8543)
-    socket.send!(
-      [
-        b"GET / HTTP/1.1\r\n", b"Host: www.example.com\r\n", b"User-Agent: libuv-client/1.0\r\n",
-        b"Connection: close\r\n", b"\r\n",
-      ],
-      fn(_) { socket.close(fn(_) {  }) },
+    in_socket.bind!(addr, @uv.UdpFlags::new())
+    in_socket.recv_start!(
+      fn(_, _) { Bytes::make(100, b'\x00')[:] },
+      fn(_, buf, data, sockaddr, flags) { println(data) },
+      fn(_, _) { panic() },
+    )
+    out_socket.send!(
+      [b"Hello World"],
+      fn(_) { out_socket.close(fn(_) {  }) },
       fn(_, e) {
         println("Error: \{e}")
-        socket.close(ignore)
+        out_socket.close(ignore)
       },
       addr~,
     )
