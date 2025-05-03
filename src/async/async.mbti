@@ -1,10 +1,97 @@
 package "tonyfettes/uv/async"
 
+import(
+  "moonbitlang/core/buffer"
+  "moonbitlang/core/bytes"
+  "moonbitlang/core/string"
+  "tonyfettes/encoding"
+  "tonyfettes/uv/path"
+)
+
 // Values
+fn open(Path, OpenFlags, mode~ : Int = ..) -> File!
+
+fn path[Input : ToPath](Input) -> Path!PathError
+
+fn pipe(ipc~ : Bool = ..) -> Pipe!
+
+fn spawn[Path : @path.ToPath + Show](Path, Array[&Show], stdin~ : Stdin = .., stdout~ : Stdout = .., stderr~ : Stdout = ..) -> CompletedProcess!
+
+fn start(() -> Unit!) -> Unit!
 
 // Types and methods
+type CompletedProcess
+impl CompletedProcess {
+  status(Self) -> Int
+  stderr(Self) -> ReadableStream!
+  stdout(Self) -> ReadableStream!
+}
+
+type File
+impl File {
+  text(Self, encoding~ : @encoding.Encoding = ..) -> String!
+}
+
+pub(all) enum OpenFlags {
+  ReadOnly
+  WriteOnly
+  ReadWrite
+}
+
+type Path
+impl Path {
+  iter(Self) -> Iter[Self]!
+  open(Self, OpenFlags, mode~ : Int = ..) -> File!
+}
+impl Div for Path
+impl Eq for Path
+impl Show for Path
+impl ToJson for Path
+impl @tonyfettes/uv.ToNtbs for Path
+
+type PathError
+
+type Pipe
+
+pub type! ProcessError {
+  Terminated(Int)
+  Failed(Int)
+  MissingStdout
+  MissingStderr
+}
+impl Show for ProcessError
+
+type ReadableStream
+impl ReadableStream {
+  bytes(Self) -> Bytes
+  text(Self, encoding~ : @encoding.Encoding = ..) -> String!
+}
+
+pub(all) enum Stdin {
+  Ignore
+  Pipe(Pipe)
+  Stdin
+  Inherit(File)
+  Bytes(@bytes.View)
+}
+
+pub(all) enum Stdout {
+  Ignore
+  Pipe(Pipe)
+  Stdout
+  Stderr
+  Inherit(File)
+  Capture
+  Buffer(@buffer.T)
+}
 
 // Type aliases
 
 // Traits
+pub trait ToPath {
+  to_path(Self) -> Path!PathError
+}
+impl ToPath for String
+impl[T : ToPath] ToPath for Array[T]
+impl ToPath for @string.StringView
 

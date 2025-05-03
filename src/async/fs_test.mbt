@@ -17,5 +17,11 @@ test "open" {
   })
 }
 
+///|
 test "scandir" {
+  @async.start!(fn() {
+    @json.inspect!(@async.path!(["test", "fixtures"]).iter!().collect(), content=[
+      "test/fixtures/example.txt",
+    ])
+  })
 }

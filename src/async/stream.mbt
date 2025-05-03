@@ -44,7 +44,7 @@ pub fn ReadableStream::bytes(self : ReadableStream) -> Bytes {
 ///|
 pub fn ReadableStream::text(
   self : ReadableStream,
-  encoding~ : @encoding.Encoding
+  encoding~ : @encoding.Encoding = UTF8
 ) -> String! {
   @encoding.decode!(self.buffer.contents(), encoding~)
 }

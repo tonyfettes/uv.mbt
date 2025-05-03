@@ -8,7 +8,7 @@ test "spawn" {
       stderr=Capture,
     )
     @json.inspect!(process.status(), content=0)
-    let stdout = process.stdout!().text!(encoding=UTF8)
+    let stdout = process.stdout!().text!()
     inspect!(
       stdout,
       content=

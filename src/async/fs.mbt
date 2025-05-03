@@ -6,14 +6,6 @@ pub(all) enum OpenFlags {
 }
 
 ///|
-type Path @path.Path
-
-///|
-pub fn path[ToPath : @path.ToPath](path : ToPath) -> Path! {
-  path.to_path!()
-}
-
-///|
 pub fn open(
   self : Path,
   flags : OpenFlags,
@@ -23,7 +15,7 @@ pub fn open(
   suspend_with_error!(fn(resolve : (File) -> Unit, reject : (Error) -> Unit) {
     try {
       uv.fs_open!(
-        self._,
+        self,
         match flags {
           ReadOnly => @uv.OpenFlags::read()
           WriteOnly => @uv.OpenFlags::write()
@@ -89,17 +81,44 @@ pub fn File::text(
 ///|
 pub fn Path::iter(self : Path) -> Iter[Path]!Async + Error {
   let uv = uv!()
-  suspend_with_error!(fn(resolve : (Unit) -> Unit, reject : (Error) -> Unit) {
+  suspend_with_error!(fn(
+    resolve : (Iter[Path]) -> Unit,
+    reject : (Error) -> Unit
+  ) {
     try {
-      uv.fs_scandir!(self._, 0, fn(_, entry) {
-      }, fn(_, e) {
-        reject(e)
-      })
+      uv.fs_scandir!(
+        self,
+        0,
+        fn(req) {
+          fn(yield_) {
+            try {
+              while true {
+                let dirent = @uv.fs_scandir_next!(req)
+                let name = dirent.name()
+                match yield_(self / path!(name)) {
+                  IterEnd => break IterEnd
+                  IterContinue => continue
+                }
+              } else {
+                IterContinue
+              }
+            } catch {
+              @uv.Errno(EOF) => {
+                IterContinue
+              }
+              e => {
+                reject(e)
+                IterEnd
+              }
+            }
+          }
+          |> Iter::new()
+          |> resolve()
+        },
+        fn(_, e) { reject(e) },
+      )
     } catch {
       e => reject(e)
     }
-  })
-  Iter::new(fn(yield_) {
-    yield_(self._ / Path::new(entry))
   })
 }
