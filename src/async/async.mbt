@@ -10,7 +10,7 @@ fn run(f : () -> Unit!Async) -> Unit = "%async.run"
 let uv_ref : Ref[@uv.Loop?] = Ref::new(None)
 
 ///|
-fn uv() -> @uv.Loop! {
+fn uv() -> @uv.Loop!@uv.Errno {
   if uv_ref.val is Some(uv) {
     return uv
   }
@@ -41,10 +41,7 @@ pub fn start(f : () -> Unit!Async + Error) -> Unit! {
   uv.stop()
   uv.close!()
   if error is Some(error) {
-    println("start: uv.run!(): \{error}")
     raise error
-  } else {
-    println("start: uv.run!(): done")
   }
 }
 

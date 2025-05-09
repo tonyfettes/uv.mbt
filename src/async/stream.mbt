@@ -1,77 +1,157 @@
 ///|
-struct ReadableStream {
-  buffer : @buffer.T
-  stream : @uv.Stream
-}
+type AsyncIter[T] ((T) -> Unit!Async + Error) -> Unit!Async + Error
 
 ///|
-fn ReadableStream::new[ToStream : @uv.ToStream](
-  stream : ToStream,
-  buffer~ : @buffer.T = @buffer.new()
-) -> ReadableStream {
-  ReadableStream::{ buffer, stream: stream.to_stream() }
-}
-
-///|
-fn ReadableStream::read(self : ReadableStream) -> Unit!Async + Error {
-  suspend_with_error!(fn(resolve, reject) {
-    try {
-      self.stream.read_start!(
-        fn(_, _) { Bytes::make(256, 0)[:] },
-        fn(_, count, bytes) { self.buffer.write_bytesview(bytes[:count]) },
-        fn(_, e) {
-          self.stream.read_stop?() |> ignore()
-          self.stream.close(fn(_) {
-            if e is Errno(EOF) {
-              resolve(())
-            } else {
-              reject(e)
-            }
-          })
-        },
-      )
-    } catch {
-      e => self.stream.close(fn(_) { reject(e) })
-    }
-  })
-}
-
-///|
-pub fn ReadableStream::bytes(self : ReadableStream) -> Bytes {
-  self.buffer.contents()
-}
-
-///|
-pub fn ReadableStream::text(
-  self : ReadableStream,
+pub fn AsyncIter::text(
+  self : AsyncIter[@bytes.View],
   encoding~ : @encoding.Encoding = UTF8
-) -> String! {
-  @encoding.decode!(self.buffer.contents(), encoding~)
+) -> String!Async + Error {
+  let decoder = @encoding.decoder(encoding)
+  let builder = StringBuilder::new()
+  (self._)!(fn(bytes) { decoder.decode_to!(bytes, builder, stream=true) })
+  builder.to_string()
 }
 
 ///|
-priv struct WritableStream {
-  bytes : @bytes.View
-  stream : @uv.Stream
+pub fn AsyncIter::bytes(self : AsyncIter[@bytes.View]) -> Bytes!Async + Error {
+  let buffer = @buffer.new()
+  (self._)!(fn(bytes) { buffer.write_bytesview(bytes) })
+  buffer.contents()
 }
 
 ///|
-fn WritableStream::new[ToStream : @uv.ToStream](
-  stream : ToStream,
-  bytes : @bytes.View
-) -> WritableStream {
-  WritableStream::{ bytes, stream: stream.to_stream() }
+pub trait Readable {
+  read(Self) -> AsyncIter[@bytes.View]!Async + Error
+  read_text(Self, encoding~ : @encoding.Encoding) -> String!Async + Error = _
+  read_bytes(Self) -> Bytes!Async + Error = _
 }
 
 ///|
-fn WritableStream::write(self : WritableStream) -> Unit!Async + Error {
+impl Readable with read_text(self : Self, encoding~ : @encoding.Encoding) {
+  let decoder = @encoding.decoder(encoding)
+  let builder = StringBuilder::new()
+  (self.read!()._)!(fn(bytes) {
+    decoder.decode_to!(bytes, builder, stream=true)
+  })
+  builder.to_string()
+}
+
+///|
+impl Readable with read_bytes(self : Self) {
+  let buffer = @buffer.new()
+  (self.read!()._)!(fn(bytes) { buffer.write_bytesview(bytes) })
+  buffer.contents()
+}
+
+///|
+pub trait Writable {
+  write(Self, @bytes.View) -> Unit!Async + Error
+}
+
+///|
+impl Readable for @uv.Stream with read(self : @uv.Stream) {
+  fn(yield_) -> Unit!Async + Error {
+    suspend_with_error!(fn(resolve, reject) {
+      try {
+        self.read_start!(
+          fn(_, _) { Bytes::make(256, 0)[:] },
+          fn(_, count, bytes) {
+            run(fn() {
+              try {
+                yield_!(bytes[:count])
+              } catch {
+                e => reject(e)
+              }
+            })
+          },
+          fn(_, e) {
+            self.read_stop?() |> ignore()
+            self.close(fn(_) {
+              if e is Errno(EOF) {
+                resolve(())
+              } else {
+                reject(e)
+              }
+            })
+          },
+        )
+      } catch {
+        e => self.close(fn(_) { reject(e) })
+      }
+    })
+  }
+}
+
+///|
+impl Writable for @uv.Stream with write(self : @uv.Stream, bytes : @bytes.View) {
   suspend_with_error!(fn(resolve, reject) {
     try {
-      self.stream.write!([self.bytes], fn(_) { resolve(()) }, fn(_, e) {
-        reject(e)
-      })
+      self.write!([bytes], fn(_) { resolve(()) }, fn(_, e) { reject(e) })
     } catch {
       e => reject(e)
     }
   })
+}
+
+///|
+pub impl Readable for @bytes.View with read(self : @bytes.View) {
+  fn(yield_) { yield_!(self) }
+}
+
+///|
+pub impl Readable for Bytes with read(self : Bytes) {
+  fn(yield_) { yield_!(self[:]) }
+}
+
+///|
+pub impl Writable for @buffer.T with write(
+  self : @buffer.T,
+  bytes : @bytes.View
+) {
+  self.write_bytesview(bytes)
+}
+
+///|
+pub impl Readable for Pipe with read(self : Pipe) {
+  self._.to_stream().read!()
+}
+
+///|
+pub impl Writable for Pipe with write(self : Pipe, bytes : @bytes.View) {
+  Writable::write!(self._.to_stream(), bytes)
+}
+
+///|
+priv struct Connection[Readable, Writable] {
+  readable : Readable
+  writable : Writable
+}
+
+///|
+fn Connection::new[Readable : Readable, Writable : Writable](
+  reader~ : Readable,
+  writer~ : Writable
+) -> Connection[Readable, Writable]!Async {
+  Connection::{ readable: reader, writable: writer }
+}
+
+///|
+fn Connection::readable[Readable, Writable](
+  self : Connection[Readable, Writable]
+) -> Readable {
+  self.readable
+}
+
+///|
+fn Connection::writable[Readable, Writable](
+  self : Connection[Readable, Writable]
+) -> Writable {
+  self.writable
+}
+
+///|
+fn Connection::start[Readable : Readable, Writable : Writable](
+  self : Connection[Readable, Writable]
+) -> Unit!Async + Error {
+  (self.readable.read!()._)!(fn(bytes) { self.writable.write!(bytes) })
 }

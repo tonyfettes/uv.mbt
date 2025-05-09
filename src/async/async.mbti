@@ -5,32 +5,41 @@ import(
   "moonbitlang/core/bytes"
   "moonbitlang/core/string"
   "tonyfettes/encoding"
-  "tonyfettes/uv/path"
 )
 
 // Values
-fn open(Path, OpenFlags, mode~ : Int = ..) -> File!
-
 fn path[Input : ToPath](Input) -> Path!PathError
 
 fn pipe(ipc~ : Bool = ..) -> Pipe!
 
-fn spawn[Path : @path.ToPath + Show](Path, Array[&Show], stdin~ : Stdin = .., stdout~ : Stdout = .., stderr~ : Stdout = ..) -> CompletedProcess!
+fn read(Path) -> AsyncIter[@bytes.View]!
+
+fn read_bytes(Path) -> Bytes!
+
+fn read_json(Path, encoding~ : @encoding.Encoding = ..) -> Json!
+
+fn read_text(Path, encoding~ : @encoding.Encoding = ..) -> String!
+
+fn spawn[Path : ToPath + Show](Path, Array[&Show], stdin~ : Stdin = .., stdout~ : Stdout = .., stderr~ : Stdout = ..) -> CompletedProcess!
 
 fn start(() -> Unit!) -> Unit!
 
 // Types and methods
+type AsyncIter[T]
+impl AsyncIter {
+  bytes(Self[@bytes.View]) -> Bytes!
+  text(Self[@bytes.View], encoding~ : @encoding.Encoding = ..) -> String!
+}
+
 type CompletedProcess
 impl CompletedProcess {
   status(Self) -> Int
-  stderr(Self) -> ReadableStream!
-  stdout(Self) -> ReadableStream!
+  stderr(Self) -> AsyncIter[@bytes.View]!
+  stdout(Self) -> AsyncIter[@bytes.View]!
 }
 
 type File
-impl File {
-  text(Self, encoding~ : @encoding.Encoding = ..) -> String!
-}
+impl Readable for File
 
 pub(all) enum OpenFlags {
   ReadOnly
@@ -40,8 +49,13 @@ pub(all) enum OpenFlags {
 
 type Path
 impl Path {
+  is_directory(Self) -> Bool!PathError
   iter(Self) -> Iter[Self]!
-  open(Self, OpenFlags, mode~ : Int = ..) -> File!
+  read(Self) -> AsyncIter[@bytes.View]!
+  read_bytes(Self) -> Bytes!
+  read_json(Self, encoding~ : @encoding.Encoding = ..) -> Json!
+  read_text(Self, encoding~ : @encoding.Encoding = ..) -> String!
+  walk(Self) -> AsyncIter[Self]!
 }
 impl Div for Path
 impl Eq for Path
@@ -52,6 +66,8 @@ impl @tonyfettes/uv.ToNtbs for Path
 type PathError
 
 type Pipe
+impl Readable for Pipe
+impl Writable for Pipe
 
 pub type! ProcessError {
   Terminated(Int)
@@ -60,12 +76,6 @@ pub type! ProcessError {
   MissingStderr
 }
 impl Show for ProcessError
-
-type ReadableStream
-impl ReadableStream {
-  bytes(Self) -> Bytes
-  text(Self, encoding~ : @encoding.Encoding = ..) -> String!
-}
 
 pub(all) enum Stdin {
   Ignore
@@ -82,16 +92,28 @@ pub(all) enum Stdout {
   Stderr
   Inherit(File)
   Capture
-  Buffer(@buffer.T)
 }
 
 // Type aliases
 
 // Traits
+pub trait Readable {
+  read(Self) -> AsyncIter[@bytes.View]!
+  read_text(Self, encoding~ : @encoding.Encoding) -> String!
+  read_bytes(Self) -> Bytes!
+}
+impl Readable for Bytes
+impl Readable for @bytes.View
+
 pub trait ToPath {
   to_path(Self) -> Path!PathError
 }
 impl ToPath for String
 impl[T : ToPath] ToPath for Array[T]
 impl ToPath for @string.StringView
+
+pub trait Writable {
+  write(Self, @bytes.View) -> Unit!
+}
+impl Writable for @buffer.T
 

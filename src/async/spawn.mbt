@@ -15,14 +15,13 @@ pub(all) enum Stdout {
   Stderr
   Inherit(File)
   Capture
-  Buffer(@buffer.T)
 }
 
 ///|
 priv struct Process {
-  mut stdin : WritableStream?
-  mut stdout : ReadableStream?
-  mut stderr : ReadableStream?
+  mut stdin : Connection[@bytes.View, Pipe]?
+  mut stdout : Connection[Pipe, @buffer.T]?
+  mut stderr : Connection[Pipe, @buffer.T]?
 }
 
 ///|
@@ -43,7 +42,7 @@ fn Process::stdin(
     Stdin::Bytes(bytes) => {
       let pipe = pipe!(ipc=false)
       let container = @uv.StdioContainer::create_pipe(pipe._, readable=true)
-      self.stdin = Some(WritableStream::new(pipe._, bytes))
+      self.stdin = Some(Connection::new!(writer=pipe, reader=bytes))
       container
     }
   }
@@ -63,13 +62,7 @@ fn Process::stdout(
     Stdout::Capture => {
       let pipe = pipe!(ipc=false)
       let container = @uv.StdioContainer::create_pipe(pipe._, writable=true)
-      self.stdout = Some(ReadableStream::new(pipe._))
-      container
-    }
-    Stdout::Buffer(buffer) => {
-      let pipe = pipe!(ipc=false)
-      let container = @uv.StdioContainer::create_pipe(pipe._, writable=true)
-      self.stdout = Some(ReadableStream::new(buffer~, pipe._))
+      self.stdout = Some(Connection::new!(reader=pipe, writer=@buffer.new()))
       container
     }
   }
@@ -89,13 +82,7 @@ fn Process::stderr(
     Stdout::Capture => {
       let pipe = pipe!(ipc=false)
       let container = @uv.StdioContainer::create_pipe(pipe._, writable=true)
-      self.stderr = Some(ReadableStream::new(pipe._))
-      container
-    }
-    Stdout::Buffer(buffer) => {
-      let pipe = pipe!(ipc=false)
-      let container = @uv.StdioContainer::create_pipe(pipe._, writable=true)
-      self.stderr = Some(ReadableStream::new(buffer~, pipe._))
+      self.stderr = Some(Connection::new!(reader=pipe, writer=@buffer.new()))
       container
     }
   }
@@ -104,8 +91,8 @@ fn Process::stderr(
 ///|
 struct CompletedProcess {
   status : Int
-  stdout : ReadableStream?
-  stderr : ReadableStream?
+  stdout : Bytes?
+  stderr : Bytes?
 }
 
 ///|
@@ -114,13 +101,17 @@ pub fn CompletedProcess::status(self : CompletedProcess) -> Int {
 }
 
 ///|
-pub fn CompletedProcess::stdout(self : CompletedProcess) -> ReadableStream! {
-  self.stdout.or_error!(MissingStdout)
+pub fn CompletedProcess::stdout(
+  self : CompletedProcess
+) -> AsyncIter[@bytes.View]!Async + Error {
+  self.stdout.or_error!(MissingStdout).read!()
 }
 
 ///|
-pub fn CompletedProcess::stderr(self : CompletedProcess) -> ReadableStream! {
-  self.stderr.or_error!(MissingStderr)
+pub fn CompletedProcess::stderr(
+  self : CompletedProcess
+) -> AsyncIter[@bytes.View]!Async + Error {
+  self.stderr.or_error!(MissingStderr).read!()
 }
 
 ///|
@@ -132,7 +123,7 @@ pub type! ProcessError {
 } derive(Show)
 
 ///|
-pub fn spawn[Path : @path.ToPath + Show](
+pub fn spawn[Path : ToPath + Show](
   path : Path,
   args : Array[&Show],
   stdin~ : Stdin = Stdin,
@@ -164,8 +155,12 @@ pub fn spawn[Path : @path.ToPath + Show](
         } else {
           resolve(CompletedProcess::{
             status: exit_status.to_int(),
-            stdout: process.stdout,
-            stderr: process.stderr,
+            stdout: process.stdout.map(fn(stdout) {
+              stdout.writable().contents()
+            }),
+            stderr: process.stderr.map(fn(stderr) {
+              stderr.writable().contents()
+            }),
           })
         }
       })
@@ -175,7 +170,7 @@ pub fn spawn[Path : @path.ToPath + Show](
       if process.stdin is Some(stdin) {
         run(fn() {
           try {
-            stdin.write!()
+            stdin.start!()
           } catch {
             e => reject(e)
           }
@@ -184,7 +179,7 @@ pub fn spawn[Path : @path.ToPath + Show](
       if process.stdout is Some(stdout) {
         run(fn() {
           try {
-            stdout.read!()
+            stdout.start!()
           } catch {
             e => reject(e)
           }
@@ -193,7 +188,7 @@ pub fn spawn[Path : @path.ToPath + Show](
       if process.stderr is Some(stderr) {
         run(fn() {
           try {
-            stderr.read!()
+            stderr.start!()
           } catch {
             e => reject(e)
           }
