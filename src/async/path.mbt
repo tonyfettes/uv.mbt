@@ -4,6 +4,43 @@ priv struct WindowsPath {
 }
 
 ///|
+fn suffixes(name : @string.View) -> Iter[String] {
+  Iter::new(fn(yield_) {
+    loop name, None {
+      ['.', .. name], None => {
+        let suffix = StringBuilder::new()
+        suffix.write_char('.')
+        continue name, Some(suffix)
+      }
+      [_, .. name], None => continue name, None
+      [], None => IterContinue
+      ['.', .. name], Some(suffix) =>
+        match yield_(suffix.to_string()) {
+          IterContinue => {
+            let suffix = StringBuilder::new()
+            suffix.write_char('.')
+            continue name, Some(suffix)
+          }
+          IterEnd => IterEnd
+        }
+      [char, .. name], Some(suffix) => {
+        suffix.write_char(char)
+        continue name, Some(suffix)
+      }
+      [], Some(suffix) =>
+        match yield_(suffix.to_string()) {
+          IterContinue => {
+            let suffix = StringBuilder::new()
+            suffix.write_char('.')
+            IterContinue
+          }
+          IterEnd => IterEnd
+        }
+    }
+  })
+}
+
+///|
 priv trait ToWindowsPath {
   to_windows_path(Self) -> WindowsPath
 }

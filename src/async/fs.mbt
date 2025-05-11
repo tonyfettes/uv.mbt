@@ -215,3 +215,24 @@ pub fn Path::is_file(self : Path) -> Bool!Async + Error {
   let stat = self.stat!()
   stat.is_file()
 }
+
+///|
+pub fn Path::suffixes(self : Path) -> Iter[String] {
+  let name = match self {
+    WindowsPath(path) =>
+      match path.parts {
+        [] => None
+        [.., name] => Some(name)
+      }
+    PosixPath(path) =>
+      match path.parts {
+        [] => None
+        [.., name] => Some(name)
+      }
+  }
+  if name is Some(name) {
+    suffixes(name)
+  } else {
+    Iter::empty()
+  }
+}
