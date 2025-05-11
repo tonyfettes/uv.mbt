@@ -22,11 +22,9 @@ pub fn AsyncIter::bytes(self : AsyncIter[@bytes.View]) -> Bytes!Async + Error {
 ///|
 pub fn AsyncIter::each[T](
   self : AsyncIter[T],
-  f : (T) -> Unit
+  f : (T) -> Unit!Async + Error
 ) -> Unit!Async + Error {
-  (self._)!(fn(item) {
-    f(item)
-  })
+  (self._)!(fn(item) { f!(item) })
 }
 
 ///|
