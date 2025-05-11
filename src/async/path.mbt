@@ -4,40 +4,6 @@ priv struct WindowsPath {
 }
 
 ///|
-fn suffixes(name : @string.View) -> Iter[String] {
-  Iter::new(fn(yield_) {
-    loop name, None {
-      ['.', .. name], None => {
-        let suffix = StringBuilder::new()
-        suffix.write_char('.')
-        continue name, Some(suffix)
-      }
-      [_, .. name], None => continue name, None
-      [], None => IterContinue
-      ['.', .. name], Some(suffix) =>
-        match yield_(suffix.to_string()) {
-          IterContinue => {
-            let suffix = StringBuilder::new()
-            suffix.write_char('.')
-            continue name, Some(suffix)
-          }
-          IterEnd => IterEnd
-        }
-      [char, .. name], Some(suffix) => {
-        suffix.write_char(char)
-        continue name, Some(suffix)
-      }
-      [], Some(suffix) =>
-        match yield_(suffix.to_string()) {
-          IterContinue => {
-            let suffix = StringBuilder::new()
-            suffix.write_char('.')
-            IterContinue
-          }
-          IterEnd => IterEnd
-        }
-    }
-  })
 }
 
 ///|
@@ -475,25 +441,4 @@ pub impl Show for Path with output(self : Path, logger : &Logger) -> Unit {
 ///|
 pub impl ToJson for Path with to_json(self : Path) -> Json {
   self.to_string().to_json()
-}
-
-///|
-pub fn Path::suffixes(self : Path) -> Iter[String] {
-  let name = match self {
-    WindowsPath(path) =>
-      match path.parts {
-        [] => None
-        [.., name] => Some(name)
-      }
-    PosixPath(path) =>
-      match path.parts {
-        [] => None
-        [.., name] => Some(name)
-      }
-  }
-  if name is Some(name) {
-    suffixes(name)
-  } else {
-    Iter::empty()
-  }
 }
