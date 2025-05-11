@@ -20,6 +20,16 @@ pub fn AsyncIter::bytes(self : AsyncIter[@bytes.View]) -> Bytes!Async + Error {
 }
 
 ///|
+pub fn AsyncIter::each[T](
+  self : AsyncIter[T],
+  f : (T) -> Unit
+) -> Unit!Async + Error {
+  (self._)!(fn(item) {
+    f(item)
+  })
+}
+
+///|
 pub trait Readable {
   read(Self) -> AsyncIter[@bytes.View]!Async + Error
   read_text(Self, encoding~ : @encoding.Encoding) -> String!Async + Error = _
