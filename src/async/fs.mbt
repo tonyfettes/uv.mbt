@@ -176,3 +176,42 @@ pub fn Path::walk(self : Path) -> AsyncIter[Path]!Async + Error {
     })
   }
 }
+
+///|
+type Stat @uv.Stat
+
+///|
+pub fn Path::stat(self : Path) -> Stat!Async + Error {
+  let uv = uv!()
+  suspend_with_error!(fn(resolve, reject) {
+    try {
+      uv.fs_stat!(self, fn(_, stat) { resolve(Stat(stat)) }, fn(_, e) {
+        reject(e)
+      })
+    } catch {
+      e => reject(e)
+    }
+  })
+}
+
+///|
+pub fn Stat::is_dir(self : Stat) -> Bool {
+  self._.is_directory()
+}
+
+///|
+pub fn Stat::is_file(self : Stat) -> Bool {
+  self._.is_file()
+}
+
+///|
+pub fn Path::is_dir(self : Path) -> Bool!Async + Error {
+  let stat = self.stat!()
+  stat.is_dir()
+}
+
+///|
+pub fn Path::is_file(self : Path) -> Bool!Async + Error {
+  let stat = self.stat!()
+  stat.is_file()
+}
