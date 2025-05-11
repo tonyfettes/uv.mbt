@@ -8,6 +8,8 @@ import(
 )
 
 // Values
+fn cwd() -> Path!
+
 fn path[Input : ToPath](Input) -> Path!PathError
 
 fn pipe(ipc~ : Bool = ..) -> Pipe!
@@ -26,6 +28,7 @@ fn start(() -> Unit!) -> Unit!
 type AsyncIter[T]
 impl AsyncIter {
   bytes(Self[@bytes.View]) -> Bytes!
+  each[T](Self[T], (T) -> Unit!) -> Unit!
   text(Self[@bytes.View], encoding~ : @encoding.Encoding = ..) -> String!
 }
 
@@ -47,11 +50,14 @@ pub(all) enum OpenFlags {
 
 type Path
 impl Path {
-  is_directory(Self) -> Bool!PathError
+  is_dir(Self) -> Bool!
+  is_file(Self) -> Bool!
   iter(Self) -> Iter[Self]!
   read(Self) -> AsyncIter[@bytes.View]!
   read_bytes(Self) -> Bytes!
   read_text(Self, encoding~ : @encoding.Encoding = ..) -> String!
+  stat(Self) -> Stat!
+  suffixes(Self) -> Iter[String]
   walk(Self) -> AsyncIter[Self]!
 }
 impl Div for Path
@@ -73,6 +79,12 @@ pub type! ProcessError {
   MissingStderr
 }
 impl Show for ProcessError
+
+type Stat
+impl Stat {
+  is_dir(Self) -> Bool
+  is_file(Self) -> Bool
+}
 
 pub(all) enum Stdin {
   Ignore

@@ -476,22 +476,3 @@ pub impl Show for Path with output(self : Path, logger : &Logger) -> Unit {
 pub impl ToJson for Path with to_json(self : Path) -> Json {
   self.to_string().to_json()
 }
-
-///|
-pub fn Path::is_directory(self : Path) -> Bool!Async + PathError {
-  let uv = try {
-    uv!()
-  } catch {
-    e => raise PathError::Errno(e)
-  }
-  let path = self.to_ntbs()
-  suspend_with_error!(fn(resolve, reject) {
-    try {
-      uv.fs_stat!(path, fn(_, stat) { resolve(stat.is_directory()) }, fn(_, e) {
-        reject(PathError::Errno(e))
-      })
-    } catch {
-      e => reject(PathError::Errno(e))
-    }
-  })
-}
