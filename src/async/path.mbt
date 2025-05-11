@@ -4,6 +4,8 @@ priv struct WindowsPath {
 }
 
 ///|
+fn WindowsPath::new(parts : ArrayView[@string.View]) -> WindowsPath {
+  WindowsPath::{ parts }
 }
 
 ///|
@@ -30,7 +32,7 @@ impl ToWindowsPath for @string.View with to_windows_path(self : @string.View) ->
       skip~: loop path {
         ['/' | '\\', .. path] => continue skip~ path
         [char, .. path] => continue path~ Some(make_part(char)), path
-        [] => break path~ { parts, }
+        [] => break path~ WindowsPath::new(parts)
       }
     }
     None, [drive, ':', char, .. path] => {
@@ -39,7 +41,7 @@ impl ToWindowsPath for @string.View with to_windows_path(self : @string.View) ->
     }
     None, [drive, ':'] => {
       parts.push("\{drive}:")
-      break path~ { parts, }
+      break path~ WindowsPath::new(parts)
     }
     None, [.. "//", .. path] | [.. "\\\\", .. path] => {
       let unc = StringBuilder::new()
@@ -57,7 +59,7 @@ impl ToWindowsPath for @string.View with to_windows_path(self : @string.View) ->
         One, ['/' | '\\'] => {
           unc.write_char('\\')
           parts.push(unc.to_string())
-          break path~ { parts, }
+          break path~ WindowsPath::new(parts)
         }
         Zero, [char, .. path] => {
           unc.write_char(char)
@@ -69,12 +71,12 @@ impl ToWindowsPath for @string.View with to_windows_path(self : @string.View) ->
         }
         Zero, [] => {
           parts.push(unc.to_string())
-          break path~ { parts, }
+          break path~ WindowsPath::new(parts)
         }
         One, [] => {
           unc.write_char('\\')
           parts.push(unc.to_string())
-          break path~ { parts, }
+          break path~ WindowsPath::new(parts)
         }
       }
     }
@@ -86,13 +88,13 @@ impl ToWindowsPath for @string.View with to_windows_path(self : @string.View) ->
       let part = make_part(char)
       continue path~ Some(part), path
     }
-    None, [] => break path~ { parts, }
+    None, [] => break path~ WindowsPath::new(parts)
     Some(part), ['/' | '\\', .. path] => {
       parts.push(part.to_string())
       skip~: loop path {
         ['/' | '\\', .. path] => continue skip~ path
         [char, .. path] => continue path~ Some(make_part(char)), path
-        [] => break path~ { parts, }
+        [] => break path~ WindowsPath::new(parts)
       }
     }
     Some(part), [char, .. path] => {
@@ -101,7 +103,7 @@ impl ToWindowsPath for @string.View with to_windows_path(self : @string.View) ->
     }
     Some(part), [] => {
       parts.push(part.to_string())
-      break path~ { parts, }
+      break path~ WindowsPath::new(parts)
     }
   }
 }
@@ -115,7 +117,7 @@ impl ToWindowsPath for String with to_windows_path(self : String) -> WindowsPath
 impl[T : ToWindowsPath] ToWindowsPath for Array[T] with to_windows_path(
   self : Array[T]
 ) -> WindowsPath {
-  let mut path : WindowsPath = WindowsPath::{ parts: [] }
+  let mut path : WindowsPath = WindowsPath::new([])
   for part in self {
     path = path / part.to_windows_path()
   }
@@ -285,7 +287,7 @@ fn PosixPath::parent(self : PosixPath) -> PosixPath {
 
 ///|
 impl Div for WindowsPath with op_div(self : WindowsPath, other : WindowsPath) -> WindowsPath {
-  return WindowsPath::{ parts: [..self.parts, ..other.parts] }
+  return WindowsPath::new([..self.parts, ..other.parts])
 }
 
 ///|
@@ -302,11 +304,11 @@ impl @uv.ToNtbs for WindowsPath with to_ntbs(self : WindowsPath) -> Bytes {
 fn WindowsPath::parent(self : WindowsPath) -> WindowsPath {
   match self.parts {
     [[_, ':', ..],  ..,  _] as parts =>
-      WindowsPath::{ parts: parts[:parts.length() - 1] }
+      WindowsPath::new(parts[:parts.length() - 1])
     [['\\', ..],  ..,  _] as parts =>
-      WindowsPath::{ parts: parts[:parts.length() - 1] }
-    [.. parts, _] => WindowsPath::{ parts, }
-    [] => WindowsPath::{ parts: [] }
+      WindowsPath::new(parts[:parts.length() - 1])
+    [.. parts, _] => WindowsPath::new(parts)
+    [] => WindowsPath::new([])
   }
 }
 
@@ -372,7 +374,7 @@ pub impl[T : ToPath] ToPath for Array[T] with to_path(self : Array[T]) -> Path!P
     e => raise PathError::Errno(e)
   }
   let mut path : Path = if utsname.sysname() == "Windows_NT" {
-    WindowsPath(WindowsPath::{ parts: [] })
+    WindowsPath(WindowsPath::new([]))
   } else {
     PosixPath(PosixPath::{ parts: [] })
   }
