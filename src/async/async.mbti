@@ -56,8 +56,8 @@ impl Path {
   read(Self) -> AsyncIter[@bytes.View]!
   read_bytes(Self) -> Bytes!
   read_text(Self, encoding~ : @encoding.Encoding = ..) -> String!
+  resolve(Self) -> Self!
   stat(Self) -> Stat!
-  suffixes(Self) -> Iter[String]
   walk(Self) -> AsyncIter[Self]!
 }
 impl Div for Path
