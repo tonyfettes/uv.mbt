@@ -16,8 +16,6 @@ fn read(Path) -> AsyncIter[@bytes.View]!
 
 fn read_bytes(Path) -> Bytes!
 
-fn read_json(Path, encoding~ : @encoding.Encoding = ..) -> Json!
-
 fn read_text(Path, encoding~ : @encoding.Encoding = ..) -> String!
 
 fn spawn[Path : ToPath + Show](Path, Array[&Show], stdin~ : Stdin = .., stdout~ : Stdout = .., stderr~ : Stdout = ..) -> CompletedProcess!
@@ -53,7 +51,6 @@ impl Path {
   iter(Self) -> Iter[Self]!
   read(Self) -> AsyncIter[@bytes.View]!
   read_bytes(Self) -> Bytes!
-  read_json(Self, encoding~ : @encoding.Encoding = ..) -> Json!
   read_text(Self, encoding~ : @encoding.Encoding = ..) -> String!
   walk(Self) -> AsyncIter[Self]!
 }

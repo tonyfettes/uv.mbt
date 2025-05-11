@@ -97,14 +97,6 @@ pub fn read_text(
 }
 
 ///|
-pub fn read_json(
-  self : Path,
-  encoding~ : @encoding.Encoding = UTF8
-) -> Json!Async + Error {
-  self.read_text!(encoding~) |> @json.parse!()
-}
-
-///|
 pub fn Path::iter(self : Path) -> Iter[Path]!Async + Error {
   let uv = uv!()
   suspend_with_error!(fn(
