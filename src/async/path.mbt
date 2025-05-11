@@ -476,3 +476,24 @@ pub impl Show for Path with output(self : Path, logger : &Logger) -> Unit {
 pub impl ToJson for Path with to_json(self : Path) -> Json {
   self.to_string().to_json()
 }
+
+///|
+pub fn Path::suffixes(self : Path) -> Iter[String] {
+  let name = match self {
+    WindowsPath(path) =>
+      match path.parts {
+        [] => None
+        [.., name] => Some(name)
+      }
+    PosixPath(path) =>
+      match path.parts {
+        [] => None
+        [.., name] => Some(name)
+      }
+  }
+  if name is Some(name) {
+    suffixes(name)
+  } else {
+    Iter::empty()
+  }
+}
