@@ -5,7 +5,7 @@ test "open" {
     |> @json.parse!()
     |> @json.inspect!(content={
       "name": "tonyfettes/uv",
-      "version": "0.2.0",
+      "version": "0.3.1",
       "deps": { "tonyfettes/c": "0.1.13", "tonyfettes/encoding": "0.3.1" },
       "readme": "README.md",
       "repository": "https://github.com/tonyfettes/uv.mbt",
