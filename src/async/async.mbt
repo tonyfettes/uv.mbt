@@ -30,10 +30,7 @@ pub fn start(f : () -> Unit!Async + Error) -> Unit! {
     try {
       f!()
     } catch {
-      e => {
-        println("start: f(): \{e}")
-        error = Some(e)
-      }
+      e => error = Some(e)
     }
   })
   uv.run!(Default)
