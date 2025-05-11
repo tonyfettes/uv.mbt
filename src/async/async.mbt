@@ -50,3 +50,8 @@ pub fn pipe(ipc~ : Bool = false) -> Pipe! {
   let uv = uv!()
   @uv.Pipe::new!(uv, ipc~)
 }
+
+///|
+pub fn cwd() -> Path! {
+  path!(@uv.cwd!())
+}
