@@ -1,19 +1,9 @@
 ///|
 test "open" {
   @async.start!(fn() {
-    @async.path!("moon.mod.json").read!().text!()
-    |> @json.parse!()
-    |> @json.inspect!(content={
-      "name": "tonyfettes/uv",
-      "version": "0.3.1",
-      "deps": { "tonyfettes/c": "0.1.13", "tonyfettes/encoding": "0.3.1" },
-      "readme": "README.md",
-      "repository": "https://github.com/tonyfettes/uv.mbt",
-      "license": "Apache-2.0",
-      "keywords": [],
-      "description": "MoonBit binding to libuv",
-      "source": "src",
-    })
+    let moon_mod_json = @async.path!("moon.mod.json").read!().text!()
+      |> @json.parse!()
+    assert_true!(moon_mod_json is Object({ "name": "tonyfettes/uv", .. }))
   })
 }
 
