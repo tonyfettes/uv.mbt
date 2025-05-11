@@ -215,3 +215,25 @@ pub fn Path::is_file(self : Path) -> Bool!Async + Error {
   let stat = self.stat!()
   stat.is_file()
 }
+
+///|
+pub fn Path::resolve(self : Path) -> Path!Async + Error {
+  let uv = uv!()
+  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try {
+      uv.fs_realpath!(
+        self,
+        fn(_, p) {
+          try {
+            resolve(path!(p))
+          } catch {
+            e => reject(e)
+          }
+        },
+        fn(_, e) { reject(e) },
+      )
+    } catch {
+      e => reject(e)
+    }
+  })
+}
