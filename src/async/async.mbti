@@ -20,7 +20,7 @@ fn read_bytes(Path) -> Bytes!
 
 fn read_text(Path, encoding~ : @encoding.Encoding = ..) -> String!
 
-fn spawn[Path : ToPath + Show](Path, Array[&Show], stdin~ : Stdin = .., stdout~ : Stdout = .., stderr~ : Stdout = ..) -> CompletedProcess!
+fn spawn[Spawnable : Spawnable](Spawnable, Array[&Show], stdin~ : Stdin = .., stdout~ : Stdout = .., stderr~ : Stdout = ..) -> CompletedProcess!
 
 fn start(() -> Unit!) -> Unit!
 
@@ -65,6 +65,7 @@ impl Eq for Path
 impl Show for Path
 impl ToJson for Path
 impl @tonyfettes/uv.ToNtbs for Path
+impl Spawnable for Path
 
 type PathError
 
@@ -113,6 +114,10 @@ pub trait Readable {
 }
 impl Readable for Bytes
 impl Readable for @bytes.View
+
+trait Spawnable
+impl Spawnable for String
+impl Spawnable for @string.StringView
 
 pub trait ToPath {
   to_path(Self) -> Path!PathError

@@ -123,15 +123,21 @@ pub type! ProcessError {
 } derive(Show)
 
 ///|
-pub fn spawn[Path : ToPath + Show](
-  path : Path,
+trait Spawnable {
+  spawn(Self, Array[&Show], stdin~ : Stdin, stdout~ : Stdout, stderr~ : Stdout) ->
+       CompletedProcess!Async + Error
+}
+
+///|
+pub impl Spawnable for @string.View with spawn(
+  self,
   args : Array[&Show],
-  stdin~ : Stdin = Stdin,
-  stdout~ : Stdout = Stdout,
-  stderr~ : Stdout = Stderr
-) -> CompletedProcess!Async + Error {
+  stdin~ : Stdin,
+  stdout~ : Stdout,
+  stderr~ : Stdout
+) {
   let uv = uv!()
-  let path = path.to_path!()
+  let path = self
   let args = args.map(fn(arg) { arg.to_string().view() })
   let stdio = []
   let process = Process::new()
@@ -198,4 +204,37 @@ pub fn spawn[Path : ToPath + Show](
       e => reject(e)
     }
   })
+}
+
+///|
+pub impl Spawnable for String with spawn(
+  self,
+  args : Array[&Show],
+  stdin~ : Stdin,
+  stdout~ : Stdout,
+  stderr~ : Stdout
+) {
+  self.view().spawn!(args, stdin~, stdout~, stderr~)
+}
+
+///|
+pub impl Spawnable for Path with spawn(
+  self,
+  args : Array[&Show],
+  stdin~ : Stdin,
+  stdout~ : Stdout,
+  stderr~ : Stdout
+) {
+  self.resolve!().to_string().spawn!(args, stdin~, stdout~, stderr~)
+}
+
+///|
+pub fn spawn[Spawnable : Spawnable](
+  path : Spawnable,
+  args : Array[&Show],
+  stdin~ : Stdin = Stdin,
+  stdout~ : Stdout = Stdout,
+  stderr~ : Stdout = Stderr
+) -> CompletedProcess!Async + Error {
+  Spawnable::spawn!(path, args, stdin~, stdout~, stderr~)
 }
