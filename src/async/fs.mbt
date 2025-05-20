@@ -237,3 +237,33 @@ pub fn Path::resolve(self : Path) -> Path!Async + Error {
     }
   })
 }
+
+///|
+pub fn Path::copy_to(self : Path, target : Path) -> Unit!Async + Error {
+  let uv = uv!()
+  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try {
+      uv.fs_copyfile!(
+        self,
+        target,
+        @uv.CopyFileFlags::new(),
+        fn(_) { resolve(()) },
+        fn(_, e) { reject(e) },
+      )
+    } catch {
+      e => reject(e)
+    }
+  })
+}
+
+///|
+pub fn Path::move_to(self : Path, target : Path) -> Unit!Async + Error {
+  let uv = uv!()
+  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try {
+      uv.fs_rename!(self, target, fn(_) { resolve(()) }, fn(_, e) { reject(e) })
+    } catch {
+      e => reject(e)
+    }
+  })
+}
