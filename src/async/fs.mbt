@@ -267,3 +267,15 @@ pub fn Path::move_to(self : Path, target : Path) -> Unit!Async + Error {
     }
   })
 }
+
+///|
+pub fn Path::unlink(self : Path) -> Unit!Async + Error {
+  let uv = uv!()
+  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try {
+      uv.fs_unlink!(self, fn(_) { resolve(()) }, fn(_, e) { reject(e) })
+    } catch {
+      e => reject(e)
+    }
+  })
+}
