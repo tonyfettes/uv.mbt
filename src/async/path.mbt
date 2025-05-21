@@ -5,7 +5,7 @@ priv struct WindowsPath {
 
 ///|
 fn WindowsPath::new(parts : ArrayView[@string.View]) -> WindowsPath {
-  WindowsPath::{ parts }
+  WindowsPath::{ parts, }
 }
 
 ///|

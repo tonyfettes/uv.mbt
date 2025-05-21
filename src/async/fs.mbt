@@ -10,31 +10,27 @@ pub impl Readable for File with read(self : File) {
   fn read(
     uv : @uv.Loop,
     file : @uv.File,
-    bytes : Bytes,
     yield_ : (@bytes.View) -> Unit!Error + Async,
     resolve : (Unit) -> Unit,
     reject : (Error) -> Unit
   ) -> Unit {
     try {
+      let bytes = Bytes::make(256, 0)
       uv.fs_read!(
         file,
         [bytes[:]],
         fn(_, count) {
-          try {
-            if count == 0 {
-              uv.fs_close!(file, fn(_) { resolve(()) })
-            } else {
-              run(fn() {
-                try {
-                  yield_!(bytes[:count])
-                } catch {
-                  e => reject(e)
-                }
-              })
-              read(uv, file, bytes, yield_, resolve, reject)
-            }
-          } catch {
-            e => reject(e)
+          if count == 0 {
+            resolve(())
+          } else {
+            run(fn() {
+              try {
+                yield_!(bytes[:count])
+                read(uv, file, yield_, resolve, reject)
+              } catch {
+                e => reject(e)
+              }
+            })
           }
         },
         fn(_, e) { reject(e) },
@@ -47,29 +43,34 @@ pub impl Readable for File with read(self : File) {
   fn(yield_) {
     let uv = uv!()
     suspend_with_error!(fn(resolve, reject) {
-      let bytes = Bytes::make(256, 0)
-      read(uv, self._, bytes, yield_, resolve, reject)
+      read(uv, self._, yield_, resolve, reject)
     })
   }
 }
 
 ///|
-pub fn read(self : Path) -> AsyncIter[@bytes.View]!Async + Error {
-  let uv = uv!()
-  suspend_with_error!(fn(
-    resolve : (AsyncIter[@bytes.View]) -> Unit,
+pub impl Writable for File with write(self : File, bytes : @bytes.View) {
+  fn write(
+    uv : @uv.Loop,
+    file : @uv.File,
+    bytes : @bytes.View,
+    yield_ : (Int) -> Unit!Error + Async,
+    resolve : (Unit) -> Unit,
     reject : (Error) -> Unit
   ) {
+    if bytes.length() == 0 {
+      resolve(())
+      return
+    }
     try {
-      uv.fs_open!(
-        self,
-        @uv.OpenFlags::read(),
-        0o644,
-        fn(_, file) {
-          let file = File(file)
+      uv.fs_write!(
+        file,
+        [bytes[:]],
+        fn(_, count) {
           run(fn() {
             try {
-              resolve(file.read!())
+              yield_!(count)
+              write(uv, file, bytes[count:], yield_, resolve, reject)
             } catch {
               e => reject(e)
             }
@@ -80,7 +81,44 @@ pub fn read(self : Path) -> AsyncIter[@bytes.View]!Async + Error {
     } catch {
       e => reject(e)
     }
-  })
+  }
+
+  let uv = uv!()
+  fn(yield_) {
+    suspend_with_error!(fn(resolve, reject) {
+      write(uv, self._, bytes, yield_, resolve, reject)
+    })
+  }
+}
+
+///|
+pub fn read(self : Path) -> AsyncIter[@bytes.View]!Async + Error {
+  let uv = uv!()
+  fn(yield_) {
+    suspend_with_error!(fn(resolve : (Unit) -> Unit, reject : (Error) -> Unit) {
+      try {
+        uv.fs_open!(
+          self,
+          @uv.OpenFlags::read(),
+          0o644,
+          fn(_, file) {
+            let file = File(file)
+            run(fn() {
+              try {
+                file.read!().each!(fn(bytes) { yield_!(bytes) })
+                uv.fs_close!(file._, fn(_) { resolve(()) })
+              } catch {
+                e => reject(e)
+              }
+            })
+          },
+          fn(_, e) { reject(e) },
+        )
+      } catch {
+        e => reject(e)
+      }
+    })
+  }
 }
 
 ///|
@@ -94,6 +132,57 @@ pub fn read_text(
   encoding~ : @encoding.Encoding = UTF8
 ) -> String!Async + Error {
   self.read!().text!(encoding~)
+}
+
+///|
+pub fn Path::write(
+  self : Path,
+  bytes : @bytes.View
+) -> AsyncIter[Int]!Async + Error {
+  let uv = uv!()
+  fn(yield_) {
+    suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+      try {
+        uv.fs_open!(
+          self,
+          @uv.OpenFlags::write(create=true),
+          0o644,
+          fn(_, file) {
+            let file = File(file)
+            run(fn() {
+              try {
+                file.write!(bytes).each!(fn(count) { yield_!(count) })
+                uv.fs_close!(file._, fn(_) { resolve(()) })
+              } catch {
+                e => reject(e)
+              }
+            })
+          },
+          fn(_, e) { reject(e) },
+        )
+      } catch {
+        e => reject(e)
+      }
+    })
+  }
+}
+
+///|
+pub fn Path::write_bytes(
+  self : Path,
+  bytes : @bytes.View
+) -> Unit!Async + Error {
+  self.write!(bytes[:]).each!(fn(_) {  })
+}
+
+///|
+pub fn Path::write_text(
+  self : Path,
+  text : @string.View,
+  encoding~ : @encoding.Encoding = UTF8
+) -> Unit!Async + Error {
+  let bytes = @encoding.encode(text, encoding~)
+  self.write!(bytes[:]).each!(fn(_) {  })
 }
 
 ///|
@@ -309,9 +398,6 @@ pub fn Path::exists(self : Path) -> Bool!Async + Error {
     true
   } catch {
     @uv.Errno(ENOENT) => false
-    e => {
-      println("Error: \{e}")
-      raise e
-    }
+    e => raise e
   }
 }

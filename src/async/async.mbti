@@ -39,6 +39,7 @@ impl CompletedProcess {
 
 type File
 impl Readable for File
+impl Writable for File
 
 pub(all) enum OpenFlags {
   ReadOnly
@@ -62,6 +63,9 @@ impl Path {
   stat(Self) -> Stat!
   unlink(Self) -> Unit!
   walk(Self) -> AsyncIter[Self]!
+  write(Self, @bytes.View) -> AsyncIter[Int]!
+  write_bytes(Self, @bytes.View) -> Unit!
+  write_text(Self, @string.StringView, encoding~ : @encoding.Encoding = ..) -> Unit!
 }
 impl Div for Path
 impl Eq for Path
@@ -121,7 +125,7 @@ impl[T : ToPath] ToPath for Array[T]
 impl ToPath for @string.StringView
 
 pub trait Writable {
-  write(Self, @bytes.View) -> Unit!
+  write(Self, @bytes.View) -> AsyncIter[Int]!
 }
 impl Writable for @buffer.T
 

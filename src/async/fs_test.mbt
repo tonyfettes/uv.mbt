@@ -8,6 +8,19 @@ test "open" {
 }
 
 ///|
+test "write" {
+  @async.start!(fn() {
+    let path = @async.path!(["test", "fixtures", "example_write.txt"])
+    @json.inspect!(path.stat?().is_err(), content=true)
+    path.write_text!("Hello, world!")
+    @json.inspect!(path.stat!().is_file(), content=true)
+    @json.inspect!(path.read_text!(), content="Hello, world!")
+    path.unlink!()
+    @json.inspect!(path.stat?().is_err(), content=true)
+  })
+}
+
+///|
 test "scandir" {
   @async.start!(fn() {
     @json.inspect!(@async.path!(["test", "fixtures"]).iter!().collect(), content=[
@@ -36,6 +49,7 @@ test "copy_to" {
   })
 }
 
+///|
 test "exists" {
   @async.start!(fn() {
     let path = @async.path!(["test", "fixtures", "example.txt"])

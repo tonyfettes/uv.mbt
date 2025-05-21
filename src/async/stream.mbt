@@ -53,7 +53,7 @@ impl Readable with read_bytes(self : Self) {
 
 ///|
 pub trait Writable {
-  write(Self, @bytes.View) -> Unit!Async + Error
+  write(Self, @bytes.View) -> AsyncIter[Int]!Async + Error
 }
 
 ///|
@@ -92,13 +92,16 @@ impl Readable for @uv.Stream with read(self : @uv.Stream) {
 
 ///|
 impl Writable for @uv.Stream with write(self : @uv.Stream, bytes : @bytes.View) {
-  suspend_with_error!(fn(resolve, reject) {
-    try {
-      self.write!([bytes], fn(_) { resolve(()) }, fn(_, e) { reject(e) })
-    } catch {
-      e => reject(e)
-    }
-  })
+  fn(yield_) {
+    suspend_with_error!(fn(resolve, reject) {
+      try {
+        self.write!([bytes], fn(_) { resolve(()) }, fn(_, e) { reject(e) })
+      } catch {
+        e => reject(e)
+      }
+    })
+    yield_!(bytes.length())
+  }
 }
 
 ///|
@@ -116,7 +119,10 @@ pub impl Writable for @buffer.T with write(
   self : @buffer.T,
   bytes : @bytes.View
 ) {
-  self.write_bytesview(bytes)
+  fn(yield_) {
+    self.write_bytesview(bytes)
+    yield_!(bytes.length())
+  }
 }
 
 ///|

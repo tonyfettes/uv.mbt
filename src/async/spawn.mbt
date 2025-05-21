@@ -43,7 +43,7 @@ fn ProcessInput::create(
       pipes.push(Some(pipe))
       stdio.push(@uv.StdioContainer::create_pipe(pipe, readable=true))
       tasks.push(fn() {
-        Writable::write!(pipe.to_stream(), bytes)
+        Writable::write!(pipe.to_stream(), bytes).each!(fn(_) {  })
         suspend!(fn(resolve : (Unit) -> Unit) {
           pipe.close(fn(_) { resolve(()) })
         })
@@ -54,7 +54,9 @@ fn ProcessInput::create(
       pipes.push(Some(pipe))
       stdio.push(@uv.StdioContainer::create_pipe(pipe, readable=true))
       tasks.push(fn() {
-        reader.each!(fn(bytes) { Writable::write!(pipe.to_stream(), bytes) })
+        reader.each!(fn(bytes) {
+          Writable::write!(pipe.to_stream(), bytes).each!(fn(_) {  })
+        })
         suspend!(fn(resolve : (Unit) -> Unit) {
           pipe.close(fn(_) { resolve(()) })
         })
