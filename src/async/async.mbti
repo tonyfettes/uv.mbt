@@ -48,14 +48,19 @@ pub(all) enum OpenFlags {
 
 type Path
 impl Path {
+  access(Self, read~ : Bool = .., write~ : Bool = .., execute~ : Bool = ..) -> Unit!
+  copy_to(Self, Self) -> Unit!
+  exists(Self) -> Bool!
   is_dir(Self) -> Bool!
   is_file(Self) -> Bool!
   iter(Self) -> Iter[Self]!
+  move_to(Self, Self) -> Unit!
   read(Self) -> AsyncIter[@bytes.View]!
   read_bytes(Self) -> Bytes!
   read_text(Self, encoding~ : @encoding.Encoding = ..) -> String!
   resolve(Self) -> Self!
   stat(Self) -> Stat!
+  unlink(Self) -> Unit!
   walk(Self) -> AsyncIter[Self]!
 }
 impl Div for Path

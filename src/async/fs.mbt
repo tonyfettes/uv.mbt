@@ -279,3 +279,39 @@ pub fn Path::unlink(self : Path) -> Unit!Async + Error {
     }
   })
 }
+
+///|
+pub fn Path::access(
+  self : Path,
+  read~ : Bool = false,
+  write~ : Bool = false,
+  execute~ : Bool = false
+) -> Unit!Async + Error {
+  let uv = uv!()
+  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try {
+      uv.fs_access!(
+        self,
+        @uv.AccessFlags::new(read~, write~, execute~),
+        fn(_) { resolve(()) },
+        fn(_, e) { reject(e) },
+      )
+    } catch {
+      e => reject(e)
+    }
+  })
+}
+
+///|
+pub fn Path::exists(self : Path) -> Bool!Async + Error {
+  try {
+    self.access!()
+    true
+  } catch {
+    @uv.Errno(ENOENT) => false
+    e => {
+      println("Error: \{e}")
+      raise e
+    }
+  }
+}

@@ -36,18 +36,25 @@ test "copy_to" {
   })
 }
 
+test "exists" {
+  @async.start!(fn() {
+    let path = @async.path!(["test", "fixtures", "example.txt"])
+    @json.inspect!(path.exists!(), content=true)
+  })
+}
+
 ///|
 test "move_to" {
   @async.start!(fn() {
     let src = @async.path!(["test", "fixtures", "example.txt"])
-    assert_true!(src.stat!().is_file())
     let dst = @async.path!(["test", "fixtures", "example_move.txt"])
-    assert_true!(dst.stat?().is_err())
+    @json.inspect!(src.exists!(), content=true)
+    @json.inspect!(dst.exists!(), content=false)
     src.move_to!(dst)
-    assert_true!(src.stat?().is_err())
-    assert_true!(dst.stat!().is_file())
+    @json.inspect!(src.exists!(), content=false)
+    @json.inspect!(dst.exists!(), content=true)
     dst.move_to!(src)
-    assert_true!(src.stat!().is_file())
-    assert_true!(dst.stat?().is_err())
+    @json.inspect!(src.exists!(), content=true)
+    @json.inspect!(dst.exists!(), content=false)
   })
 }
