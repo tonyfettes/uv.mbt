@@ -1,14 +1,16 @@
 ///|
-test "spawn" {
+test "spawn: capture stdout and stderr" {
   @async.start!(fn() {
+    let stdout = @buffer.new()
+    let stderr = @buffer.new()
     let process = @async.spawn!(
       "moon",
-      ["moon", "--help"],
-      stdout=Capture,
-      stderr=Capture,
+      ["--help"],
+      stdout=Buffer(stdout),
+      stderr=Buffer(stderr),
     )
     @json.inspect!(process.status(), content=0)
-    let stdout = process.stdout!().text!()
+    let stdout = @encoding.decode!(stdout.contents(), encoding=UTF8)
     inspect!(
       stdout,
       content=
@@ -56,6 +58,24 @@ test "spawn" {
         #|      --build-graph              Generate build graph
         #|
       ,
+    )
+  })
+}
+
+///|
+test "spawn: send stdin" {
+  @async.start!(fn() {
+    let stdout = @buffer.new()
+    let process = @async.spawn!(
+      "cat",
+      [],
+      stdin=Bytes("hello\n"),
+      stdout=Buffer(stdout),
+    )
+    @json.inspect!(process.status(), content=0)
+    @json.inspect!(
+      @encoding.decode!(stdout.contents(), encoding=UTF8),
+      content="hello\n",
     )
   })
 }

@@ -20,7 +20,7 @@ fn read_bytes(Path) -> Bytes!
 
 fn read_text(Path, encoding~ : @encoding.Encoding = ..) -> String!
 
-fn spawn[Path : ToPath + Show](Path, Array[&Show], stdin~ : Stdin = .., stdout~ : Stdout = .., stderr~ : Stdout = ..) -> CompletedProcess!
+fn spawn[Exec : Executable](Exec, Array[&Show], stdin~ : ProcessInput = .., stdout~ : ProcessOutput = .., stderr~ : ProcessOutput = ..) -> CompletedProcess!
 
 fn start(() -> Unit!) -> Unit!
 
@@ -35,8 +35,6 @@ impl AsyncIter {
 type CompletedProcess
 impl CompletedProcess {
   status(Self) -> Int
-  stderr(Self) -> AsyncIter[@bytes.View]!
-  stdout(Self) -> AsyncIter[@bytes.View]!
 }
 
 type File
@@ -65,6 +63,7 @@ impl Eq for Path
 impl Show for Path
 impl ToJson for Path
 impl @tonyfettes/uv.ToNtbs for Path
+impl Executable for Path
 
 type PathError
 
@@ -72,13 +71,22 @@ type Pipe
 impl Readable for Pipe
 impl Writable for Pipe
 
-pub type! ProcessError {
-  Terminated(Int)
-  Failed(Int)
-  MissingStdout
-  MissingStderr
+pub(all) enum ProcessInput {
+  Ignore
+  Stdin
+  Inherit(File)
+  Bytes(@bytes.View)
+  Reader(AsyncIter[@bytes.View])
 }
-impl Show for ProcessError
+
+pub(all) enum ProcessOutput {
+  Ignore
+  Stdout
+  Stderr
+  Inherit(File)
+  Buffer(@buffer.T)
+  Writer((@bytes.View) -> Unit!)
+}
 
 type Stat
 impl Stat {
@@ -86,26 +94,12 @@ impl Stat {
   is_file(Self) -> Bool
 }
 
-pub(all) enum Stdin {
-  Ignore
-  Pipe(Pipe)
-  Stdin
-  Inherit(File)
-  Bytes(@bytes.View)
-}
-
-pub(all) enum Stdout {
-  Ignore
-  Pipe(Pipe)
-  Stdout
-  Stderr
-  Inherit(File)
-  Capture
-}
-
 // Type aliases
 
 // Traits
+trait Executable
+impl Executable for String
+
 pub trait Readable {
   read(Self) -> AsyncIter[@bytes.View]!
   read_text(Self, encoding~ : @encoding.Encoding) -> String!

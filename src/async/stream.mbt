@@ -128,38 +128,3 @@ pub impl Readable for Pipe with read(self : Pipe) {
 pub impl Writable for Pipe with write(self : Pipe, bytes : @bytes.View) {
   Writable::write!(self._.to_stream(), bytes)
 }
-
-///|
-priv struct Connection[Readable, Writable] {
-  readable : Readable
-  writable : Writable
-}
-
-///|
-fn Connection::new[Readable : Readable, Writable : Writable](
-  reader~ : Readable,
-  writer~ : Writable
-) -> Connection[Readable, Writable]!Async {
-  Connection::{ readable: reader, writable: writer }
-}
-
-///|
-fn Connection::readable[Readable, Writable](
-  self : Connection[Readable, Writable]
-) -> Readable {
-  self.readable
-}
-
-///|
-fn Connection::writable[Readable, Writable](
-  self : Connection[Readable, Writable]
-) -> Writable {
-  self.writable
-}
-
-///|
-fn Connection::start[Readable : Readable, Writable : Writable](
-  self : Connection[Readable, Writable]
-) -> Unit!Async + Error {
-  (self.readable.read!()._)!(fn(bytes) { self.writable.write!(bytes) })
-}

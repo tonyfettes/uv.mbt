@@ -1,3 +1,7 @@
+async fn suspend[T](
+  f : ((T) -> Unit) -> Unit
+) -> T!Async = "%async.suspend"
+
 ///|
 fn suspend_with_error[T, E : Error](
   f : ((T) -> Unit, (E) -> Unit) -> Unit
