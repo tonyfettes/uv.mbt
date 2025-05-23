@@ -13,6 +13,23 @@ pub fn AsyncIter::text(
 }
 
 ///|
+pub fn AsyncIter::decode(
+  self : AsyncIter[@bytes.View],
+  encoding~ : @encoding.Encoding
+) -> AsyncIter[String]!Async {
+  let decoder = @encoding.decoder(encoding)
+  let builder = StringBuilder::new()
+  fn(yield_) {
+    (self._)!(fn(bytes) {
+      decoder.decode_to!(bytes, builder, stream=true)
+      let content = builder.to_string()
+      yield_!(content)
+      builder.reset()
+    })
+  }
+}
+
+///|
 pub fn AsyncIter::bytes(self : AsyncIter[@bytes.View]) -> Bytes!Async + Error {
   let buffer = @buffer.new()
   (self._)!(fn(bytes) { buffer.write_bytesview(bytes) })
@@ -20,7 +37,7 @@ pub fn AsyncIter::bytes(self : AsyncIter[@bytes.View]) -> Bytes!Async + Error {
 }
 
 ///|
-pub fn AsyncIter::each[T](
+pub fn[T] AsyncIter::each(
   self : AsyncIter[T],
   f : (T) -> Unit!Async + Error
 ) -> Unit!Async + Error {
@@ -59,15 +76,13 @@ pub trait Writable {
 ///|
 impl Readable for @uv.Stream with read(self : @uv.Stream) {
   fn(yield_) -> Unit!Async + Error {
-    suspend_with_error!(fn(resolve, reject) {
-      try {
+    async_suspend_with_error!(fn(resolve, reject) {
+      try
         self.read_start!(
           fn(_, _) { Bytes::make(256, 0)[:] },
           fn(_, count, bytes) {
-            run(fn() {
-              try {
-                yield_!(bytes[:count])
-              } catch {
+            async_run(fn() {
+              try yield_!(bytes[:count]) catch {
                 e => reject(e)
               }
             })
@@ -82,8 +97,7 @@ impl Readable for @uv.Stream with read(self : @uv.Stream) {
               }
             })
           },
-        )
-      } catch {
+        ) catch {
         e => self.close(fn(_) { reject(e) })
       }
     })
@@ -93,10 +107,8 @@ impl Readable for @uv.Stream with read(self : @uv.Stream) {
 ///|
 impl Writable for @uv.Stream with write(self : @uv.Stream, bytes : @bytes.View) {
   fn(yield_) {
-    suspend_with_error!(fn(resolve, reject) {
-      try {
-        self.write!([bytes], fn(_) { resolve(()) }, fn(_, e) { reject(e) })
-      } catch {
+    async_suspend_with_error!(fn(resolve, reject) {
+      try self.write!([bytes], fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
         e => reject(e)
       }
     })

@@ -1,16 +1,27 @@
 ///|
-async fn suspend[T](f : ((T) -> Unit) -> Unit) -> T!Async = "%async.suspend"
+async fn[T] suspend(f : ((T) -> Unit) -> Unit) -> T!Async = "%async.suspend"
 
 ///|
-fn suspend_with_error[T, E : Error](
+fn[T, E : Error] async_suspend_with_error(
   f : ((T) -> Unit, (E) -> Unit) -> Unit
 ) -> T!E + Async = "%async.suspend"
 
 ///|
-fn run(f : () -> Unit!Async) -> Unit = "%async.run"
+fn async_run(f : () -> Unit!Async) -> Unit = "%async.run"
 
 ///|
 let uv_ref : Ref[@uv.Loop?] = Ref::new(None)
+
+///|
+struct Context {
+  uv : @uv.Loop
+}
+
+///|
+struct Scope[T] {
+  resolve : (T) -> Unit
+  reject : (Error) -> Unit
+}
 
 ///|
 fn uv() -> @uv.Loop!@uv.Errno {
@@ -26,12 +37,16 @@ fn uv() -> @uv.Loop!@uv.Errno {
 type File @uv.File
 
 ///|
-pub fn start(f : () -> Unit!Async + Error) -> Unit! {
+pub fn[T] start(f : () -> T!Async + Error) -> T! {
   let uv = uv!()
+  let mut value = None
   let mut error = None
-  run(fn() {
+  async_run(fn() {
     try {
-      f!()
+      let _ = {
+        value = Some(f!())
+      }
+
     } catch {
       e => error = Some(e)
     }
@@ -43,13 +58,15 @@ pub fn start(f : () -> Unit!Async + Error) -> Unit! {
   if error is Some(error) {
     raise error
   }
+  guard value is Some(value)
+  value
 }
 
 ///|
 type Pipe @uv.Pipe
 
 ///|
-pub fn pipe(ipc~ : Bool = false) -> Pipe! {
+pub fn Pipe::new(ipc~ : Bool = false) -> Pipe! {
   let uv = uv!()
   @uv.Pipe::new!(uv, ipc~)
 }
@@ -57,4 +74,25 @@ pub fn pipe(ipc~ : Bool = false) -> Pipe! {
 ///|
 pub fn cwd() -> Path! {
   path!(@uv.cwd!())
+}
+
+///|
+struct Task[T] {
+  f : () -> T!Async + Error
+}
+
+///|
+pub fn[T] Task::new(f : () -> T!Async + Error) -> Task[T] {
+  Task::{ f, }
+}
+
+///|
+pub fn[T] Task::start(self : Task[T]) -> T!Async + Error {
+  async_suspend_with_error!(fn(resolve, reject) {
+    async_run(fn() {
+      try resolve((self.f)!()) catch {
+        e => reject(e)
+      }
+    })
+  })
 }

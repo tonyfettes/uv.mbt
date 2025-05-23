@@ -60,15 +60,15 @@ test "exists" {
 ///|
 test "move_to" {
   @async.start!(fn() {
-    let src = @async.path!(["test", "fixtures", "example.txt"])
-    let dst = @async.path!(["test", "fixtures", "example_move.txt"])
-    @json.inspect!(src.exists!(), content=true)
-    @json.inspect!(dst.exists!(), content=false)
+    let src = @async.path(["test", "fixtures", "example.txt"])
+    let dst = @async.path(["test", "fixtures", "example_move.txt"])
+    @json.inspect(src.exists(), content=true)
+    @json.inspect(dst.exists(), content=false)
     src.move_to!(dst)
-    @json.inspect!(src.exists!(), content=false)
-    @json.inspect!(dst.exists!(), content=true)
+    @json.inspect(src.exists(), content=false)
+    @json.inspect(dst.exists(), content=true)
     dst.move_to!(src)
-    @json.inspect!(src.exists!(), content=true)
-    @json.inspect!(dst.exists!(), content=false)
+    @json.inspect(src.exists(), content=true)
+    @json.inspect(dst.exists(), content=false)
   })
 }

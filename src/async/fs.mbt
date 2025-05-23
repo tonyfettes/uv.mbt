@@ -23,7 +23,7 @@ pub impl Readable for File with read(self : File) {
           if count == 0 {
             resolve(())
           } else {
-            run(fn() {
+            async_run(fn() {
               try {
                 yield_!(bytes[:count])
                 read(uv, file, yield_, resolve, reject)
@@ -42,7 +42,7 @@ pub impl Readable for File with read(self : File) {
 
   fn(yield_) {
     let uv = uv!()
-    suspend_with_error!(fn(resolve, reject) {
+    async_suspend_with_error!(fn(resolve, reject) {
       read(uv, self._, yield_, resolve, reject)
     })
   }
@@ -62,12 +62,12 @@ pub impl Writable for File with write(self : File, bytes : @bytes.View) {
       resolve(())
       return
     }
-    try {
+    try
       uv.fs_write!(
         file,
         [bytes[:]],
         fn(_, count) {
-          run(fn() {
+          async_run(fn() {
             try {
               yield_!(count)
               write(uv, file, bytes[count:], yield_, resolve, reject)
@@ -77,15 +77,14 @@ pub impl Writable for File with write(self : File, bytes : @bytes.View) {
           })
         },
         fn(_, e) { reject(e) },
-      )
-    } catch {
+      ) catch {
       e => reject(e)
     }
   }
 
   let uv = uv!()
   fn(yield_) {
-    suspend_with_error!(fn(resolve, reject) {
+    async_suspend_with_error!(fn(resolve, reject) {
       write(uv, self._, bytes, yield_, resolve, reject)
     })
   }
@@ -95,15 +94,18 @@ pub impl Writable for File with write(self : File, bytes : @bytes.View) {
 pub fn read(self : Path) -> AsyncIter[@bytes.View]!Async + Error {
   let uv = uv!()
   fn(yield_) {
-    suspend_with_error!(fn(resolve : (Unit) -> Unit, reject : (Error) -> Unit) {
-      try {
+    async_suspend_with_error!(fn(
+      resolve : (Unit) -> Unit,
+      reject : (Error) -> Unit
+    ) {
+      try
         uv.fs_open!(
           self,
           @uv.OpenFlags::read(),
           0o644,
           fn(_, file) {
             let file = File(file)
-            run(fn() {
+            async_run(fn() {
               try {
                 file.read!().each!(fn(bytes) { yield_!(bytes) })
                 uv.fs_close!(file._, fn(_) { resolve(()) })
@@ -113,8 +115,7 @@ pub fn read(self : Path) -> AsyncIter[@bytes.View]!Async + Error {
             })
           },
           fn(_, e) { reject(e) },
-        )
-      } catch {
+        ) catch {
         e => reject(e)
       }
     })
@@ -141,15 +142,15 @@ pub fn Path::write(
 ) -> AsyncIter[Int]!Async + Error {
   let uv = uv!()
   fn(yield_) {
-    suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
-      try {
+    async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+      try
         uv.fs_open!(
           self,
           @uv.OpenFlags::write(create=true),
           0o644,
           fn(_, file) {
             let file = File(file)
-            run(fn() {
+            async_run(fn() {
               try {
                 file.write!(bytes).each!(fn(count) { yield_!(count) })
                 uv.fs_close!(file._, fn(_) { resolve(()) })
@@ -159,8 +160,7 @@ pub fn Path::write(
             })
           },
           fn(_, e) { reject(e) },
-        )
-      } catch {
+        ) catch {
         e => reject(e)
       }
     })
@@ -188,11 +188,11 @@ pub fn Path::write_text(
 ///|
 pub fn Path::iter(self : Path) -> Iter[Path]!Async + Error {
   let uv = uv!()
-  suspend_with_error!(fn(
+  async_suspend_with_error!(fn(
     resolve : (Iter[Path]) -> Unit,
     reject : (Error) -> Unit
   ) {
-    try {
+    try
       uv.fs_scandir!(
         self,
         0,
@@ -221,8 +221,7 @@ pub fn Path::iter(self : Path) -> Iter[Path]!Async + Error {
           |> resolve()
         },
         fn(_, e) { reject(e) },
-      )
-    } catch {
+      ) catch {
       e => reject(e)
     }
   })
@@ -232,13 +231,13 @@ pub fn Path::iter(self : Path) -> Iter[Path]!Async + Error {
 pub fn Path::walk(self : Path) -> AsyncIter[Path]!Async + Error {
   let uv = uv!()
   fn(yield_) {
-    suspend_with_error!(fn(resolve, reject) {
-      try {
+    async_suspend_with_error!(fn(resolve, reject) {
+      try
         uv.fs_scandir!(
           self,
           0,
           fn(req) {
-            run(fn() {
+            async_run(fn() {
               try {
                 while true {
                   let dirent = @uv.fs_scandir_next!(req)
@@ -258,8 +257,7 @@ pub fn Path::walk(self : Path) -> AsyncIter[Path]!Async + Error {
             })
           },
           fn(_, e) { reject(e) },
-        )
-      } catch {
+        ) catch {
         e => reject(e)
       }
     })
@@ -272,12 +270,11 @@ type Stat @uv.Stat
 ///|
 pub fn Path::stat(self : Path) -> Stat!Async + Error {
   let uv = uv!()
-  suspend_with_error!(fn(resolve, reject) {
-    try {
+  async_suspend_with_error!(fn(resolve, reject) {
+    try
       uv.fs_stat!(self, fn(_, stat) { resolve(Stat(stat)) }, fn(_, e) {
         reject(e)
-      })
-    } catch {
+      }) catch {
       e => reject(e)
     }
   })
@@ -308,20 +305,17 @@ pub fn Path::is_file(self : Path) -> Bool!Async + Error {
 ///|
 pub fn Path::resolve(self : Path) -> Path!Async + Error {
   let uv = uv!()
-  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
-    try {
+  async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try
       uv.fs_realpath!(
         self,
         fn(_, p) {
-          try {
-            resolve(path!(p))
-          } catch {
+          try resolve(path!(p)) catch {
             e => reject(e)
           }
         },
         fn(_, e) { reject(e) },
-      )
-    } catch {
+      ) catch {
       e => reject(e)
     }
   })
@@ -330,16 +324,15 @@ pub fn Path::resolve(self : Path) -> Path!Async + Error {
 ///|
 pub fn Path::copy_to(self : Path, target : Path) -> Unit!Async + Error {
   let uv = uv!()
-  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
-    try {
+  async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try
       uv.fs_copyfile!(
         self,
         target,
         @uv.CopyFileFlags::new(),
         fn(_) { resolve(()) },
         fn(_, e) { reject(e) },
-      )
-    } catch {
+      ) catch {
       e => reject(e)
     }
   })
@@ -348,10 +341,9 @@ pub fn Path::copy_to(self : Path, target : Path) -> Unit!Async + Error {
 ///|
 pub fn Path::move_to(self : Path, target : Path) -> Unit!Async + Error {
   let uv = uv!()
-  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
-    try {
-      uv.fs_rename!(self, target, fn(_) { resolve(()) }, fn(_, e) { reject(e) })
-    } catch {
+  async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try
+      uv.fs_rename!(self, target, fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
       e => reject(e)
     }
   })
@@ -360,10 +352,8 @@ pub fn Path::move_to(self : Path, target : Path) -> Unit!Async + Error {
 ///|
 pub fn Path::unlink(self : Path) -> Unit!Async + Error {
   let uv = uv!()
-  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
-    try {
-      uv.fs_unlink!(self, fn(_) { resolve(()) }, fn(_, e) { reject(e) })
-    } catch {
+  async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try uv.fs_unlink!(self, fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
       e => reject(e)
     }
   })
@@ -377,15 +367,14 @@ pub fn Path::access(
   execute~ : Bool = false
 ) -> Unit!Async + Error {
   let uv = uv!()
-  suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
-    try {
+  async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    try
       uv.fs_access!(
         self,
         @uv.AccessFlags::new(read~, write~, execute~),
         fn(_) { resolve(()) },
         fn(_, e) { reject(e) },
-      )
-    } catch {
+      ) catch {
       e => reject(e)
     }
   })

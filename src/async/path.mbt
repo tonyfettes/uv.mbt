@@ -349,9 +349,7 @@ type! PathError {
 
 ///|
 pub impl ToPath for @string.View with to_path(self : @string.View) -> Path!PathError {
-  let utsname = try {
-    @uv.os_uname!()
-  } catch {
+  let utsname = try @uv.os_uname!() catch {
     e => raise PathError::Errno(e)
   }
   if utsname.sysname() == "Windows_NT" {
@@ -368,9 +366,7 @@ pub impl ToPath for String with to_path(self : String) -> Path!PathError {
 
 ///|
 pub impl[T : ToPath] ToPath for Array[T] with to_path(self : Array[T]) -> Path!PathError {
-  let utsname = try {
-    @uv.os_uname!()
-  } catch {
+  let utsname = try @uv.os_uname!() catch {
     e => raise PathError::Errno(e)
   }
   let mut path : Path = if utsname.sysname() == "Windows_NT" {
@@ -385,7 +381,7 @@ pub impl[T : ToPath] ToPath for Array[T] with to_path(self : Array[T]) -> Path!P
 }
 
 ///|
-pub fn path[Input : ToPath](path : Input) -> Path!PathError {
+pub fn[Input : ToPath] path(path : Input) -> Path!PathError {
   path.to_path!()
 }
 

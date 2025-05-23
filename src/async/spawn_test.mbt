@@ -79,3 +79,27 @@ test "spawn: send stdin" {
     )
   })
 }
+
+///|
+test "spawn: async" {
+  @async.start!(fn() {
+    let stdin = @async.Pipe::new()
+    let stdout = @buffer.new()
+    let spawn_thread = @async.Task::new(fn() {
+      @async.spawn!("cat", [], stdin=Pipe(stdin), stdout=Buffer(stdout))
+    })
+    let io_thread = @async.Task::new(fn() {
+      stdin.write!("hello\n").each!(fn(_) {  })
+      inspect!(
+        @encoding.decode!(stdout.contents(), encoding=UTF8),
+        content="hello\n",
+      )
+      stdin.write!("world\n").each!(fn(_) {  })
+      inspect!(
+        @encoding.decode!(stdout.contents(), encoding=UTF8),
+        content="hello\nworld\n",
+      )
+    })
+
+  })
+}

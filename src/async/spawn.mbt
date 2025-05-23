@@ -2,6 +2,7 @@
 pub(all) enum ProcessInput {
   Ignore
   Stdin
+  Pipe(Pipe)
   Inherit(File)
   Bytes(@bytes.View)
   Reader(AsyncIter[@bytes.View])
@@ -37,6 +38,10 @@ fn ProcessInput::create(
     Stdin => {
       pipes.push(None)
       stdio.push(@uv.StdioContainer::inherit_file(@uv.stdin()))
+    }
+    Pipe(pipe) => {
+      pipes.push(Some(pipe._))
+      stdio.push(@uv.StdioContainer::create_pipe(pipe._, writable=true))
     }
     Bytes(bytes) => {
       let pipe = @uv.Pipe::new!(uv)
@@ -147,7 +152,7 @@ pub impl Executable for String with spawn(
       ..args.map(fn(arg) { arg.to_string().view() }),
     ]
   let mut cancelled = false
-  suspend_with_error!(fn(
+  async_suspend_with_error!(fn(
     resolve : (CompletedProcess) -> Unit,
     reject : (Error) -> Unit
   ) {
@@ -170,10 +175,8 @@ pub impl Executable for String with spawn(
       })
       ignore(uv.spawn!(options))
       for task in tasks {
-        run(fn() {
-          try {
-            task!()
-          } catch {
+        async_run(fn() {
+          try task!() catch {
             e =>
               if not(cancelled) {
                 cancelled = true
@@ -204,12 +207,12 @@ pub impl Executable for Path with spawn(
 }
 
 ///|
-pub fn spawn[Exec : Executable](
+pub fn[Exec : Executable] spawn(
   exec : Exec,
   args : Array[&Show],
   stdin~ : ProcessInput = Ignore,
-  stdout~ : ProcessOutput = ProcessOutput::Ignore,
-  stderr~ : ProcessOutput = ProcessOutput::Ignore
+  stdout~ : ProcessOutput = Ignore,
+  stderr~ : ProcessOutput = Ignore
 ) -> CompletedProcess!Async + Error {
   exec.spawn!(args, stdin~, stdout~, stderr~)
 }
