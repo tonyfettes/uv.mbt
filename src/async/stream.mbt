@@ -1,11 +1,11 @@
 ///|
-type AsyncIter[T] ((T) -> Unit!Async + Error) -> Unit!Async + Error
+type Iter[T] ((T) -> Unit!Error + Async) -> Unit!Error + Async
 
 ///|
-pub fn AsyncIter::text(
-  self : AsyncIter[@bytes.View],
+pub async fn Iter::text(
+  self : Iter[@bytes.View],
   encoding~ : @encoding.Encoding = UTF8
-) -> String!Async + Error {
+) -> String! {
   let decoder = @encoding.decoder(encoding)
   let builder = StringBuilder::new()
   (self._)!(fn(bytes) { decoder.decode_to!(bytes, builder, stream=true) })
@@ -13,10 +13,10 @@ pub fn AsyncIter::text(
 }
 
 ///|
-pub fn AsyncIter::decode(
-  self : AsyncIter[@bytes.View],
+pub async fn Iter::decode(
+  self : Iter[@bytes.View],
   encoding~ : @encoding.Encoding
-) -> AsyncIter[String]!Async {
+) -> Iter[String] {
   let decoder = @encoding.decoder(encoding)
   let builder = StringBuilder::new()
   fn(yield_) {
@@ -30,23 +30,23 @@ pub fn AsyncIter::decode(
 }
 
 ///|
-pub fn AsyncIter::bytes(self : AsyncIter[@bytes.View]) -> Bytes!Async + Error {
+pub async fn Iter::bytes(self : Iter[@bytes.View]) -> Bytes! {
   let buffer = @buffer.new()
   (self._)!(fn(bytes) { buffer.write_bytesview(bytes) })
   buffer.contents()
 }
 
 ///|
-pub fn[T] AsyncIter::each(
-  self : AsyncIter[T],
-  f : (T) -> Unit!Async + Error
-) -> Unit!Async + Error {
+pub async fn[T] Iter::each(
+  self : Iter[T],
+  f : (T) -> Unit!Error + Async
+) -> Unit! {
   (self._)!(fn(item) { f!(item) })
 }
 
 ///|
 pub trait Readable {
-  read(Self) -> AsyncIter[@bytes.View]!Async + Error
+  read(Self) -> Iter[@bytes.View]!Async + Error
   read_text(Self, encoding~ : @encoding.Encoding) -> String!Async + Error = _
   read_bytes(Self) -> Bytes!Async + Error = _
 }
@@ -70,7 +70,7 @@ impl Readable with read_bytes(self : Self) {
 
 ///|
 pub trait Writable {
-  write(Self, @bytes.View) -> AsyncIter[Int]!Async + Error
+  write(Self, @bytes.View) -> Iter[Int]!Async + Error
 }
 
 ///|

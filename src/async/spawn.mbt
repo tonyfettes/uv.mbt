@@ -5,7 +5,7 @@ pub(all) enum ProcessInput {
   Pipe(Pipe)
   Inherit(File)
   Bytes(@bytes.View)
-  Reader(AsyncIter[@bytes.View])
+  Reader(Iter[@bytes.View])
 }
 
 ///|
@@ -15,14 +15,14 @@ pub(all) enum ProcessOutput {
   Stderr
   Inherit(File)
   Buffer(@buffer.T)
-  Writer((@bytes.View) -> Unit!Async + Error)
+  Writer((@bytes.View) -> Unit!Error + Async)
 }
 
 ///|
 fn ProcessInput::create(
   self : ProcessInput,
   pipes~ : Array[@uv.Pipe?],
-  tasks~ : Array[() -> Unit!Async + Error],
+  tasks~ : Array[() -> Unit!Error + Async],
   stdio~ : Array[@uv.StdioContainer]
 ) -> Unit!Error {
   let uv = uv!()
@@ -74,7 +74,7 @@ fn ProcessInput::create(
 fn ProcessOutput::create(
   self : ProcessOutput,
   pipes~ : Array[@uv.Pipe?],
-  tasks~ : Array[() -> Unit!Async + Error],
+  tasks~ : Array[() -> Unit!Error + Async],
   stdio~ : Array[@uv.StdioContainer]
 ) -> Unit!Error {
   let uv = uv!()
@@ -207,12 +207,12 @@ pub impl Executable for Path with spawn(
 }
 
 ///|
-pub fn[Exec : Executable] spawn(
+pub async fn[Exec : Executable] spawn(
   exec : Exec,
   args : Array[&Show],
   stdin~ : ProcessInput = Ignore,
   stdout~ : ProcessOutput = Ignore,
   stderr~ : ProcessOutput = Ignore
-) -> CompletedProcess!Async + Error {
+) -> CompletedProcess! {
   exec.spawn!(args, stdin~, stdout~, stderr~)
 }

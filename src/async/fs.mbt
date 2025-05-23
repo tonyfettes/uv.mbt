@@ -91,7 +91,7 @@ pub impl Writable for File with write(self : File, bytes : @bytes.View) {
 }
 
 ///|
-pub fn read(self : Path) -> AsyncIter[@bytes.View]!Async + Error {
+pub async fn read(self : Path) -> Iter[@bytes.View]! {
   let uv = uv!()
   fn(yield_) {
     async_suspend_with_error!(fn(
@@ -123,23 +123,20 @@ pub fn read(self : Path) -> AsyncIter[@bytes.View]!Async + Error {
 }
 
 ///|
-pub fn read_bytes(self : Path) -> Bytes!Async + Error {
+pub async fn read_bytes(self : Path) -> Bytes! {
   self.read!().bytes!()
 }
 
 ///|
-pub fn read_text(
+pub async fn read_text(
   self : Path,
   encoding~ : @encoding.Encoding = UTF8
-) -> String!Async + Error {
+) -> String! {
   self.read!().text!(encoding~)
 }
 
 ///|
-pub fn Path::write(
-  self : Path,
-  bytes : @bytes.View
-) -> AsyncIter[Int]!Async + Error {
+pub async fn Path::write(self : Path, bytes : @bytes.View) -> Iter[Int]! {
   let uv = uv!()
   fn(yield_) {
     async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
@@ -168,28 +165,25 @@ pub fn Path::write(
 }
 
 ///|
-pub fn Path::write_bytes(
-  self : Path,
-  bytes : @bytes.View
-) -> Unit!Async + Error {
+pub async fn Path::write_bytes(self : Path, bytes : @bytes.View) -> Unit! {
   self.write!(bytes[:]).each!(fn(_) {  })
 }
 
 ///|
-pub fn Path::write_text(
+pub async fn Path::write_text(
   self : Path,
   text : @string.View,
   encoding~ : @encoding.Encoding = UTF8
-) -> Unit!Async + Error {
+) -> Unit! {
   let bytes = @encoding.encode(text, encoding~)
   self.write!(bytes[:]).each!(fn(_) {  })
 }
 
 ///|
-pub fn Path::iter(self : Path) -> Iter[Path]!Async + Error {
+pub async fn Path::iter(self : Path) -> @builtin.Iter[Path]! {
   let uv = uv!()
   async_suspend_with_error!(fn(
-    resolve : (Iter[Path]) -> Unit,
+    resolve : (@builtin.Iter[Path]) -> Unit,
     reject : (Error) -> Unit
   ) {
     try
@@ -217,7 +211,7 @@ pub fn Path::iter(self : Path) -> Iter[Path]!Async + Error {
               }
             }
           }
-          |> Iter::new()
+          |> @builtin.Iter::new()
           |> resolve()
         },
         fn(_, e) { reject(e) },
@@ -228,7 +222,7 @@ pub fn Path::iter(self : Path) -> Iter[Path]!Async + Error {
 }
 
 ///|
-pub fn Path::walk(self : Path) -> AsyncIter[Path]!Async + Error {
+pub async fn Path::walk(self : Path) -> Iter[Path]! {
   let uv = uv!()
   fn(yield_) {
     async_suspend_with_error!(fn(resolve, reject) {
@@ -268,7 +262,7 @@ pub fn Path::walk(self : Path) -> AsyncIter[Path]!Async + Error {
 type Stat @uv.Stat
 
 ///|
-pub fn Path::stat(self : Path) -> Stat!Async + Error {
+pub async fn Path::stat(self : Path) -> Stat! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject) {
     try
@@ -291,19 +285,19 @@ pub fn Stat::is_file(self : Stat) -> Bool {
 }
 
 ///|
-pub fn Path::is_dir(self : Path) -> Bool!Async + Error {
+pub async fn Path::is_dir(self : Path) -> Bool! {
   let stat = self.stat!()
   stat.is_dir()
 }
 
 ///|
-pub fn Path::is_file(self : Path) -> Bool!Async + Error {
+pub async fn Path::is_file(self : Path) -> Bool! {
   let stat = self.stat!()
   stat.is_file()
 }
 
 ///|
-pub fn Path::resolve(self : Path) -> Path!Async + Error {
+pub async fn Path::resolve(self : Path) -> Path! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
@@ -322,7 +316,7 @@ pub fn Path::resolve(self : Path) -> Path!Async + Error {
 }
 
 ///|
-pub fn Path::copy_to(self : Path, target : Path) -> Unit!Async + Error {
+pub async fn Path::copy_to(self : Path, target : Path) -> Unit! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
@@ -339,7 +333,7 @@ pub fn Path::copy_to(self : Path, target : Path) -> Unit!Async + Error {
 }
 
 ///|
-pub fn Path::move_to(self : Path, target : Path) -> Unit!Async + Error {
+pub async fn Path::move_to(self : Path, target : Path) -> Unit! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
@@ -350,7 +344,7 @@ pub fn Path::move_to(self : Path, target : Path) -> Unit!Async + Error {
 }
 
 ///|
-pub fn Path::unlink(self : Path) -> Unit!Async + Error {
+pub async fn Path::unlink(self : Path) -> Unit! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try uv.fs_unlink!(self, fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
@@ -360,12 +354,12 @@ pub fn Path::unlink(self : Path) -> Unit!Async + Error {
 }
 
 ///|
-pub fn Path::access(
+pub async fn Path::access(
   self : Path,
   read~ : Bool = false,
   write~ : Bool = false,
   execute~ : Bool = false
-) -> Unit!Async + Error {
+) -> Unit! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
@@ -381,7 +375,7 @@ pub fn Path::access(
 }
 
 ///|
-pub fn Path::exists(self : Path) -> Bool!Async + Error {
+pub async fn Path::exists(self : Path) -> Bool! {
   try {
     self.access!()
     true
