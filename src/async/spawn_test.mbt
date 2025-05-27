@@ -85,10 +85,21 @@ test "spawn: async" {
   @async.start!(fn() {
     let stdin = @async.Pipe::new()
     let stdout = @buffer.new()
-    let spawn_thread = @async.Task::new(fn() {
-      @async.spawn!("cat", [], stdin=Pipe(stdin), stdout=Buffer(stdout))
+    println("launching spawn thread")
+    @async.launch(fn() {
+      println("spawn thread")
+      let process = @async.spawn!(
+        "cat",
+        [],
+        stdin=Pipe(stdin),
+        stdout=Buffer(stdout),
+      )
+      @json.inspect!(process.status(), content=0)
     })
-    let io_thread = @async.Task::new(fn() {
+    println("launched spawn thread")
+    println("launching write thread")
+    @async.launch(fn() {
+      println("write thread")
       stdin.write!("hello\n").each!(fn(_) {  })
       inspect!(
         @encoding.decode!(stdout.contents(), encoding=UTF8),
@@ -100,6 +111,6 @@ test "spawn: async" {
         content="hello\nworld\n",
       )
     })
-
+    println("launched write thread")
   })
 }

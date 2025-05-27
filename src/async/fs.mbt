@@ -384,3 +384,8 @@ pub async fn Path::exists(self : Path) -> Bool! {
     e => raise e
   }
 }
+
+///|
+pub fn cwd() -> Path! {
+  path!(@uv.cwd!())
+}

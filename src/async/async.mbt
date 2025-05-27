@@ -10,49 +10,101 @@ fn[T, E : Error] async_suspend_with_error(
 fn async_run(f : () -> Unit!Async) -> Unit = "%async.run"
 
 ///|
-let uv_ref : Ref[@uv.Loop?] = Ref::new(None)
-
-///|
-struct Context {
+priv struct Context {
   uv : @uv.Loop
+  mut id : Int
 }
 
 ///|
-struct Scope[T] {
-  resolve : (T) -> Unit
+let context_ref : Ref[Context?] = Ref::new(None)
+
+///|
+fn context() -> Context! {
+  match context_ref.val {
+    Some(context) => context
+    None => {
+      let uv = @uv.Loop::new!()
+      let context = Context::{ uv, id: 0 }
+      context_ref.val = Some(context)
+      context
+    }
+  }
+}
+
+///|
+fn Context::id(self : Context) -> Int {
+  let id = self.id
+  self.id += 1
+  id
+}
+
+///|
+priv struct Scope {
+  context : Context
+  tasks : Set[Int]
+  resolve : (Unit) -> Unit
   reject : (Error) -> Unit
 }
 
 ///|
-fn uv() -> @uv.Loop!@uv.Errno {
-  if uv_ref.val is Some(uv) {
-    return uv
+fn Scope::new(
+  context : Context,
+  resolve : (Unit) -> Unit,
+  reject : (Error) -> Unit
+) -> Scope {
+  Scope::{ context, tasks: Set::new(), resolve, reject }
+}
+
+///|
+fn Scope::launch(self : Scope, f : () -> Unit!Async + Error) -> Unit {
+  let id = self.context.id()
+  self.tasks.add(id)
+  async_run(fn() {
+    try {
+      f!()
+      self.resolve(id~)
+    } catch {
+      e => self.reject(id~, e)
+    }
+  })
+}
+
+///|
+fn Scope::resolve(self : Scope, id~ : Int) -> Unit {
+  if self.tasks.contains(id) {
+    self.tasks.remove(id)
+    if self.tasks.is_empty() {
+      (self.resolve)(())
+    }
   }
-  let uv = @uv.Loop::new!()
-  uv_ref.val = Some(uv)
-  return uv
+}
+
+///|
+fn Scope::reject(self : Scope, id~ : Int, e : Error) -> Unit {
+  if self.tasks.contains(id) {
+    self.tasks.remove(id)
+    if self.tasks.is_empty() {
+      (self.reject)(e)
+    }
+  }
 }
 
 ///|
 type File @uv.File
 
 ///|
-pub fn[T] start(f : () -> T!Async + Error) -> T! {
-  let uv = uv!()
+fn[T] Context::start(self : Context, f : () -> T!Async + Error) -> T! {
+  let uv = self.uv
   let mut value = None
   let mut error = None
   async_run(fn() {
     try {
-      let _ = {
-        value = Some(f!())
-      }
-
+      value = Some(f!())
     } catch {
       e => error = Some(e)
     }
   })
   uv.run!(Default)
-  uv_ref.val = None
   uv.stop()
   uv.close!()
   if error is Some(error) {
@@ -63,17 +115,32 @@ pub fn[T] start(f : () -> T!Async + Error) -> T! {
 }
 
 ///|
+fn[T] Context::scope(
+  self : Context,
+  f : () -> T!Async + Error
+) -> T!Async + Error {
+  let mut value = None
+  async_suspend_with_error!(fn(resolve, reject) {
+    let scope = Scope::new(self, resolve, reject)
+    scope.launch(fn() { value = Some(f()) })
+  })
+  guard value is Some(value)
+  value
+}
+
+///|
+pub fn[T] scope(f : () -> T!Async + Error) -> T!Async + Error {
+  let context = context!()
+  context.scope(f)
+}
+
+///|
 type Pipe @uv.Pipe
 
 ///|
 pub fn Pipe::new(ipc~ : Bool = false) -> Pipe! {
-  let uv = uv!()
+  let uv = context!().uv
   @uv.Pipe::new!(uv, ipc~)
-}
-
-///|
-pub fn cwd() -> Path! {
-  path!(@uv.cwd!())
 }
 
 ///|
