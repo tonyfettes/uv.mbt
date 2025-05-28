@@ -63,15 +63,6 @@ pub fn[T] start(f : () -> T!Async + Error) -> T! {
 }
 
 ///|
-type Pipe @uv.Pipe
-
-///|
-pub fn Pipe::new(ipc~ : Bool = false) -> Pipe! {
-  let uv = uv!()
-  @uv.Pipe::new!(uv, ipc~)
-}
-
-///|
 pub fn cwd() -> Path! {
   path!(@uv.cwd!())
 }
