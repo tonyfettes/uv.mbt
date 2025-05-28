@@ -4,8 +4,6 @@ pub(all) enum ProcessInput {
   Stdin
   Pipe(Pipe)
   Inherit(File)
-  Bytes(@bytes.View)
-  Reader(Iter[@bytes.View])
 }
 
 ///|
@@ -13,118 +11,82 @@ pub(all) enum ProcessOutput {
   Ignore
   Stdout
   Stderr
+  Pipe(Pipe)
   Inherit(File)
-  Buffer(@buffer.T)
-  Writer((@bytes.View) -> Unit!Error + Async)
 }
 
 ///|
 fn ProcessInput::create(
   self : ProcessInput,
-  pipes~ : Array[@uv.Pipe?],
-  tasks~ : Array[() -> Unit!Error + Async],
-  stdio~ : Array[@uv.StdioContainer]
-) -> Unit!Error {
-  let uv = uv!()
+  stdio : Array[@uv.StdioContainer]
+) -> Unit {
   match self {
-    Ignore => {
-      pipes.push(None)
-      stdio.push(@uv.StdioContainer::ignore())
-    }
-    Inherit(file) => {
-      pipes.push(None)
-      stdio.push(@uv.StdioContainer::inherit_file(file._))
-    }
-    Stdin => {
-      pipes.push(None)
-      stdio.push(@uv.StdioContainer::inherit_file(@uv.stdin()))
-    }
-    Pipe(pipe) => {
-      pipes.push(Some(pipe._))
-      stdio.push(@uv.StdioContainer::create_pipe(pipe._, writable=true))
-    }
-    Bytes(bytes) => {
-      let pipe = @uv.Pipe::new!(uv)
-      pipes.push(Some(pipe))
-      stdio.push(@uv.StdioContainer::create_pipe(pipe, readable=true))
-      tasks.push(fn() {
-        Writable::write!(pipe.to_stream(), bytes).each!(fn(_) {  })
-        suspend!(fn(resolve : (Unit) -> Unit) {
-          pipe.close(fn(_) { resolve(()) })
-        })
-      })
-    }
-    Reader(reader) => {
-      let pipe = @uv.Pipe::new!(uv)
-      pipes.push(Some(pipe))
-      stdio.push(@uv.StdioContainer::create_pipe(pipe, readable=true))
-      tasks.push(fn() {
-        reader.each!(fn(bytes) {
-          Writable::write!(pipe.to_stream(), bytes).each!(fn(_) {  })
-        })
-        suspend!(fn(resolve : (Unit) -> Unit) {
-          pipe.close(fn(_) { resolve(()) })
-        })
-      })
-    }
+    Ignore => stdio.push(@uv.StdioContainer::ignore())
+    Inherit(file) => stdio.push(@uv.StdioContainer::inherit_file(file._))
+    Pipe(pipe) =>
+      stdio.push(@uv.StdioContainer::create_pipe(pipe._, readable=true))
+    Stdin => stdio.push(@uv.StdioContainer::inherit_file(@uv.stdin()))
   }
 }
 
 ///|
 fn ProcessOutput::create(
   self : ProcessOutput,
-  pipes~ : Array[@uv.Pipe?],
-  tasks~ : Array[() -> Unit!Error + Async],
-  stdio~ : Array[@uv.StdioContainer]
-) -> Unit!Error {
-  let uv = uv!()
+  stdio : Array[@uv.StdioContainer]
+) -> Unit {
   match self {
-    Ignore => {
-      pipes.push(None)
-      stdio.push(@uv.StdioContainer::ignore())
-    }
-    Inherit(file) => {
-      pipes.push(None)
-      stdio.push(@uv.StdioContainer::inherit_file(file._))
-    }
-    Stdout => {
-      pipes.push(None)
-      stdio.push(@uv.StdioContainer::inherit_file(@uv.stdout()))
-    }
-    Stderr => {
-      pipes.push(None)
-      stdio.push(@uv.StdioContainer::inherit_file(@uv.stderr()))
-    }
-    Buffer(buffer) => {
-      let pipe = @uv.Pipe::new!(uv)
-      pipes.push(Some(pipe))
-      stdio.push(@uv.StdioContainer::create_pipe(pipe, writable=true))
-      tasks.push(fn() {
-        pipe
-        .to_stream()
-        .read!()
-        .each!(fn(bytes) { buffer.write_bytesview(bytes) })
-      })
-    }
-    Writer(writer) => {
-      let pipe = @uv.Pipe::new!(uv)
-      pipes.push(Some(pipe))
-      stdio.push(@uv.StdioContainer::create_pipe(pipe, writable=true))
-      tasks.push(fn() {
-        pipe.to_stream().read!().each!(fn(bytes) { writer!(bytes) })
-      })
-    }
+    Ignore => stdio.push(@uv.StdioContainer::ignore())
+    Inherit(file) => stdio.push(@uv.StdioContainer::inherit_file(file._))
+    Pipe(pipe) =>
+      stdio.push(@uv.StdioContainer::create_pipe(pipe._, writable=true))
+    Stdout => stdio.push(@uv.StdioContainer::inherit_file(@uv.stdout()))
+    Stderr => stdio.push(@uv.StdioContainer::inherit_file(@uv.stderr()))
   }
 }
 
 ///|
-struct CompletedProcess {
-  status : Int
+struct Process {
+  mut process : @uv.Process?
+  resolve : Array[() -> Unit]
+  mut status : Int?
+  mut signal : Int?
 }
 
 ///|
-pub fn CompletedProcess::status(self : CompletedProcess) -> Int {
-  self.status
+fn Process::wait(self : Process) -> Unit!Async {
+  if self.status is Some(_) {
+    return
+  }
+  async_suspend!(fn(resolve) { self.resolve.push(fn() { resolve(()) }) })
+}
+
+///|
+pub fn Process::status(self : Process) -> Int!Async {
+  self.wait!()
+  guard self.status is Some(status)
+  status
+}
+
+///|
+pub fn Process::signal(self : Process) -> Int!Async {
+  self.wait!()
+  guard self.signal is Some(signal)
+  signal
+}
+
+///|
+pub fn Process::kill(self : Process, signum : Signum) -> Unit!Error {
+  guard self.process is Some(process)
+  let signum = match signum {
+    SIGHUP => @uv.Signum::sighup()
+    SIGINT => @uv.Signum::sigint()
+    SIGQUIT => @uv.Signum::sigquit()
+    SIGABRT => @uv.Signum::sigabrt()
+    SIGTERM => @uv.Signum::sigterm()
+    SIGWINCH => @uv.Signum::sigwinch()
+    SIGPIPE => @uv.Signum::sigpipe!()
+  }
+  process.kill!(signum)
 }
 
 ///|
@@ -135,7 +97,7 @@ trait Executable {
     stdin~ : ProcessInput,
     stdout~ : ProcessOutput,
     stderr~ : ProcessOutput,
-  ) -> CompletedProcess!Async + Error
+  ) -> Process!Async + Error
 }
 
 ///|
@@ -145,53 +107,37 @@ pub impl Executable for String with spawn(
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
-) -> CompletedProcess!Async + Error {
+) -> Process!Async + Error {
   let uv = uv!()
   let args : Array[@string.View] = [
       self,
       ..args.map(fn(arg) { arg.to_string().view() }),
     ]
-  let mut cancelled = false
-  async_suspend_with_error!(fn(
-    resolve : (CompletedProcess) -> Unit,
-    reject : (Error) -> Unit
+  let stdio = []
+  stdin.create(stdio)
+  stdout.create(stdio)
+  stderr.create(stdio)
+  let process = Process::{
+    process: None,
+    resolve: [],
+    status: None,
+    signal: None,
+  }
+  let options = @uv.ProcessOptions::new(self, args, stdio~, fn(
+    child,
+    exit_status,
+    term_signal
   ) {
-    try {
-      let pipes = []
-      let tasks = []
-      let stdio = []
-      stdin.create!(pipes~, stdio~, tasks~)
-      stdout.create!(pipes~, stdio~, tasks~)
-      stderr.create!(pipes~, stdio~, tasks~)
-      let options = @uv.ProcessOptions::new(self, args, stdio~, fn(
-        child,
-        exit_status,
-        term_signal
-      ) {
-        child.close(fn(_) {
-          ignore(term_signal)
-          CompletedProcess::{ status: exit_status.to_int() } |> resolve()
-        })
-      })
-      ignore(uv.spawn!(options))
-      for task in tasks {
-        async_run(fn() {
-          try task!() catch {
-            e =>
-              if not(cancelled) {
-                cancelled = true
-                reject(e)
-              }
-          }
-        })
-        if cancelled {
-          break
-        }
+    process.status = Some(exit_status.to_int())
+    process.signal = Some(term_signal)
+    child.close(fn(_) {
+      for resolve in process.resolve {
+        resolve()
       }
-    } catch {
-      e => reject(e)
-    }
+    })
   })
+  process.process = Some(uv.spawn!(options))
+  process
 }
 
 ///|
@@ -201,7 +147,7 @@ pub impl Executable for Path with spawn(
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
-) -> CompletedProcess!Async + Error {
+) -> Process!Async + Error {
   let path = self.to_string()
   path.spawn!(args, stdin~, stdout~, stderr~)
 }
@@ -213,6 +159,6 @@ pub async fn[Exec : Executable] spawn(
   stdin~ : ProcessInput = Ignore,
   stdout~ : ProcessOutput = Ignore,
   stderr~ : ProcessOutput = Ignore
-) -> CompletedProcess! {
+) -> Process! {
   exec.spawn!(args, stdin~, stdout~, stderr~)
 }

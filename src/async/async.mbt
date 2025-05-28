@@ -1,5 +1,5 @@
 ///|
-async fn[T] suspend(f : ((T) -> Unit) -> Unit) -> T!Async = "%async.suspend"
+async fn[T] async_suspend(f : ((T) -> Unit) -> Unit) -> T!Async = "%async.suspend"
 
 ///|
 fn[T, E : Error] async_suspend_with_error(
@@ -11,17 +11,6 @@ fn async_run(f : () -> Unit!Async) -> Unit = "%async.run"
 
 ///|
 let uv_ref : Ref[@uv.Loop?] = Ref::new(None)
-
-///|
-struct Context {
-  uv : @uv.Loop
-}
-
-///|
-struct Scope[T] {
-  resolve : (T) -> Unit
-  reject : (Error) -> Unit
-}
 
 ///|
 fn uv() -> @uv.Loop!@uv.Errno {

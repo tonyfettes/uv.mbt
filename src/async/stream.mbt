@@ -136,13 +136,3 @@ pub impl Writable for @buffer.T with write(
     yield_!(bytes.length())
   }
 }
-
-///|
-pub impl Readable for Pipe with read(self : Pipe) {
-  self._.to_stream().read!()
-}
-
-///|
-pub impl Writable for Pipe with write(self : Pipe, bytes : @bytes.View) {
-  Writable::write!(self._.to_stream(), bytes)
-}

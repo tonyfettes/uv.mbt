@@ -1,18 +1,11 @@
 ///|
 test "spawn: capture stdout and stderr" {
   @async.start!(fn() {
-    let stdout = @buffer.new()
-    let stderr = @buffer.new()
-    let process = @async.spawn!(
-      "moon",
-      ["--help"],
-      stdout=Buffer(stdout),
-      stderr=Buffer(stderr),
-    )
-    @json.inspect!(process.status(), content=0)
-    let stdout = @encoding.decode!(stdout.contents(), encoding=UTF8)
+    let stdout = @async.Pipe::new!()
+    let process = @async.spawn!("moon", ["--help"], stdout=Pipe(stdout))
+    @json.inspect!(process.status!(), content=0)
     inspect!(
-      stdout,
+      stdout.read_text!(encoding=UTF8),
       content=
         #|The build system and package manager for MoonBit.
         #|
@@ -65,41 +58,17 @@ test "spawn: capture stdout and stderr" {
 ///|
 test "spawn: send stdin" {
   @async.start!(fn() {
-    let stdout = @buffer.new()
+    let stdin = @async.Pipe::new!()
+    let stdout = @async.Pipe::new!()
     let process = @async.spawn!(
       "cat",
       [],
-      stdin=Bytes("hello\n"),
-      stdout=Buffer(stdout),
+      stdin=Pipe(stdin),
+      stdout=Pipe(stdout),
     )
-    @json.inspect!(process.status(), content=0)
-    @json.inspect!(
-      @encoding.decode!(stdout.contents(), encoding=UTF8),
-      content="hello\n",
-    )
-  })
-}
-
-///|
-test "spawn: async" {
-  @async.start!(fn() {
-    let stdin = @async.Pipe::new()
-    let stdout = @buffer.new()
-    let spawn_thread = @async.Task::new(fn() {
-      @async.spawn!("cat", [], stdin=Pipe(stdin), stdout=Buffer(stdout))
-    })
-    let io_thread = @async.Task::new(fn() {
-      stdin.write!("hello\n").each!(fn(_) {  })
-      inspect!(
-        @encoding.decode!(stdout.contents(), encoding=UTF8),
-        content="hello\n",
-      )
-      stdin.write!("world\n").each!(fn(_) {  })
-      inspect!(
-        @encoding.decode!(stdout.contents(), encoding=UTF8),
-        content="hello\nworld\n",
-      )
-    })
-
+    stdin.write!("hello\n").each!(fn(_) {  })
+    stdin.close!()
+    @json.inspect!(process.status!(), content=0)
+    @json.inspect!(stdout.read_text!(encoding=UTF8), content="hello\n")
   })
 }
