@@ -53,7 +53,7 @@ struct Process {
 }
 
 ///|
-fn Process::wait(self : Process) -> Unit!Async {
+async fn Process::wait(self : Process) -> Unit {
   if self.status is Some(_) {
     return
   }
@@ -61,14 +61,14 @@ fn Process::wait(self : Process) -> Unit!Async {
 }
 
 ///|
-pub fn Process::status(self : Process) -> Int!Async {
+pub async fn Process::status(self : Process) -> Int {
   self.wait!()
   guard self.status is Some(status)
   status
 }
 
 ///|
-pub fn Process::signal(self : Process) -> Int!Async {
+pub async fn Process::signal(self : Process) -> Int {
   self.wait!()
   guard self.signal is Some(signal)
   signal
@@ -97,7 +97,7 @@ trait Executable {
     stdin~ : ProcessInput,
     stdout~ : ProcessOutput,
     stderr~ : ProcessOutput,
-  ) -> Process!Async + Error
+  ) -> Process!Error
 }
 
 ///|
@@ -107,7 +107,7 @@ pub impl Executable for String with spawn(
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
-) -> Process!Async + Error {
+) -> Process!Error {
   let uv = uv!()
   let args : Array[@string.View] = [
       self,
@@ -147,7 +147,7 @@ pub impl Executable for Path with spawn(
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
-) -> Process!Async + Error {
+) -> Process!Error {
   let path = self.to_string()
   path.spawn!(args, stdin~, stdout~, stderr~)
 }

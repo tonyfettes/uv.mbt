@@ -66,7 +66,7 @@ test "spawn: send stdin" {
       stdin=Pipe(stdin),
       stdout=Pipe(stdout),
     )
-    stdin.write!("hello\n").each!(fn(_) {  })
+    stdin.write_bytes!("hello\n")
     stdin.close!()
     @json.inspect!(process.status!(), content=0)
     @json.inspect!(stdout.read_text!(encoding=UTF8), content="hello\n")

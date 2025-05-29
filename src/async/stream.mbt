@@ -1,5 +1,5 @@
 ///|
-type Iter[T] ((T) -> Unit!Error + Async) -> Unit!Error + Async
+type Iter[T] async (async (T) -> Unit!) -> Unit!
 
 ///|
 pub async fn Iter::text(
@@ -37,18 +37,15 @@ pub async fn Iter::bytes(self : Iter[@bytes.View]) -> Bytes! {
 }
 
 ///|
-pub async fn[T] Iter::each(
-  self : Iter[T],
-  f : (T) -> Unit!Error + Async
-) -> Unit! {
+pub async fn[T] Iter::each(self : Iter[T], f : async (T) -> Unit!) -> Unit! {
   (self._)!(fn(item) { f!(item) })
 }
 
 ///|
 pub trait Readable {
-  read(Self) -> Iter[@bytes.View]!Async + Error
-  read_text(Self, encoding~ : @encoding.Encoding) -> String!Async + Error = _
-  read_bytes(Self) -> Bytes!Async + Error = _
+  async read(Self) -> Iter[@bytes.View]!Error
+  async read_text(Self, encoding~ : @encoding.Encoding) -> String!Error = _
+  async read_bytes(Self) -> Bytes!Error = _
 }
 
 ///|
@@ -70,12 +67,18 @@ impl Readable with read_bytes(self : Self) {
 
 ///|
 pub trait Writable {
-  write(Self, @bytes.View) -> Iter[Int]!Async + Error
+  async write(Self, Iter[@bytes.View]) -> Unit!Error
+  async write_bytes(Self, @bytes.View) -> Unit!Error = _
+}
+
+///|
+impl Writable with write_bytes(self : Self, bytes : @bytes.View) {
+  self.write!(fn(yield_) { yield_!(bytes[:]) })
 }
 
 ///|
 impl Readable for @uv.Stream with read(self : @uv.Stream) {
-  fn(yield_) -> Unit!Async + Error {
+  fn(yield_) -> Unit!Error {
     async_suspend_with_error!(fn(resolve, reject) {
       try
         self.read_start!(
@@ -105,15 +108,17 @@ impl Readable for @uv.Stream with read(self : @uv.Stream) {
 }
 
 ///|
-impl Writable for @uv.Stream with write(self : @uv.Stream, bytes : @bytes.View) {
-  fn(yield_) {
+impl Writable for @uv.Stream with write(
+  self : @uv.Stream,
+  bytes : Iter[@bytes.View]
+) -> Unit!Error {
+  bytes.each!(fn(bytes) {
     async_suspend_with_error!(fn(resolve, reject) {
       try self.write!([bytes], fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
         e => reject(e)
       }
     })
-    yield_!(bytes.length())
-  }
+  })
 }
 
 ///|
@@ -129,10 +134,7 @@ pub impl Readable for Bytes with read(self : Bytes) {
 ///|
 pub impl Writable for @buffer.T with write(
   self : @buffer.T,
-  bytes : @bytes.View
+  bytes : Iter[@bytes.View]
 ) {
-  fn(yield_) {
-    self.write_bytesview(bytes)
-    yield_!(bytes.length())
-  }
+  bytes.each!(fn(bytes) { self.write_bytesview(bytes) })
 }

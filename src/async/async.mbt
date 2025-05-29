@@ -1,13 +1,13 @@
 ///|
-async fn[T] async_suspend(f : ((T) -> Unit) -> Unit) -> T!Async = "%async.suspend"
+async fn[T] async_suspend(f : ((T) -> Unit) -> Unit) -> T = "%async.suspend"
 
 ///|
-fn[T, E : Error] async_suspend_with_error(
+async fn[T, E : Error] async_suspend_with_error(
   f : ((T) -> Unit, (E) -> Unit) -> Unit
-) -> T!E + Async = "%async.suspend"
+) -> T!E = "%async.suspend"
 
 ///|
-fn async_run(f : () -> Unit!Async) -> Unit = "%async.run"
+fn async_run(f : async () -> Unit) -> Unit = "%async.run"
 
 ///|
 let uv_ref : Ref[@uv.Loop?] = Ref::new(None)
@@ -26,7 +26,7 @@ fn uv() -> @uv.Loop!@uv.Errno {
 type File @uv.File
 
 ///|
-pub fn[T] start(f : () -> T!Async + Error) -> T! {
+pub fn[T] start(f : async () -> T!) -> T! {
   let uv = uv!()
   let mut value = None
   let mut error = None
@@ -58,16 +58,16 @@ pub fn cwd() -> Path! {
 
 ///|
 struct Task[T] {
-  f : () -> T!Async + Error
+  f : async () -> T!
 }
 
 ///|
-pub fn[T] Task::new(f : () -> T!Async + Error) -> Task[T] {
+pub fn[T] Task::new(f : async () -> T!) -> Task[T] {
   Task::{ f, }
 }
 
 ///|
-pub fn[T] Task::start(self : Task[T]) -> T!Async + Error {
+pub async fn[T] Task::start(self : Task[T]) -> T! {
   async_suspend_with_error!(fn(resolve, reject) {
     async_run(fn() {
       try resolve((self.f)!()) catch {

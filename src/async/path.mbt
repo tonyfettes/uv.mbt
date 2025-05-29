@@ -303,10 +303,9 @@ impl @uv.ToNtbs for WindowsPath with to_ntbs(self : WindowsPath) -> Bytes {
 ///|
 fn WindowsPath::parent(self : WindowsPath) -> WindowsPath {
   match self.parts {
-    [[_, ':', ..],  ..,  _] as parts =>
+    [[_, ':', ..], .., _] as parts =>
       WindowsPath::new(parts[:parts.length() - 1])
-    [['\\', ..],  ..,  _] as parts =>
-      WindowsPath::new(parts[:parts.length() - 1])
+    [['\\', ..], .., _] as parts => WindowsPath::new(parts[:parts.length() - 1])
     [.. parts, _] => WindowsPath::new(parts)
     [] => WindowsPath::new([])
   }

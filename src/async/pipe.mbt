@@ -8,7 +8,7 @@ pub fn Pipe::new(ipc~ : Bool = false) -> Pipe! {
 }
 
 ///|
-pub fn Pipe::close(self : Pipe) -> Unit!Async {
+pub async fn Pipe::close(self : Pipe) -> Unit {
   async_suspend!(fn(resolve) { self._.close(fn(_) { resolve(()) }) })
 }
 
@@ -18,9 +18,6 @@ pub impl Readable for Pipe with read(self : Pipe) {
 }
 
 ///|
-pub impl Writable for Pipe with write(self : Pipe, bytes : @bytes.View) -> Iter[
-  Int,
-]!Async +
-Error {
+pub impl Writable for Pipe with write(self : Pipe, bytes : Iter[@bytes.View]) {
   Writable::write!(self._.to_stream(), bytes)
 }
