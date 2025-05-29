@@ -344,7 +344,7 @@ pub trait ToPath {
 ///|
 type! PathError {
   Errno(@uv.Errno)
-}
+} derive(Show)
 
 ///|
 pub impl ToPath for @string.View with to_path(self : @string.View) -> Path!PathError {
@@ -438,4 +438,15 @@ pub impl Show for Path with output(self : Path, logger : &Logger) -> Unit {
 ///|
 pub impl ToJson for Path with to_json(self : Path) -> Json {
   self.to_string().to_json()
+}
+
+///|
+pub impl @json.FromJson for Path with from_json(
+  json : Json,
+  json_path : @json.JsonPath
+) -> Path!@json.JsonDecodeError {
+  let string : String = @json.from_json!(json, path=json_path)
+  try path!(string) catch {
+    e => raise @json.JsonDecodeError((json_path, e.to_string()))
+  }
 }
