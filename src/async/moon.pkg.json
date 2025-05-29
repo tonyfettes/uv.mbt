@@ -28,10 +28,5 @@
   "import": [
     "tonyfettes/uv",
     "tonyfettes/encoding"
-  ],
-  "link": {
-    "native": {
-      "cc": "/opt/homebrew/opt/llvm/bin/clang"
-    }
-  }
+  ]   
 }
