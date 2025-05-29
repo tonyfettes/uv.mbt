@@ -12,6 +12,9 @@
     "path.mbt": [
       "native"
     ],
+    "pipe.mbt": [
+      "native"
+    ],
     "spawn_test.mbt": [
       "native"
     ],
