@@ -364,6 +364,11 @@ pub impl ToPath for String with to_path(self : String) -> Path!PathError {
 }
 
 ///|
+pub impl ToPath for Path with to_path(self : Path) -> Path!PathError {
+  return self
+}
+
+///|
 pub impl[T : ToPath] ToPath for Array[T] with to_path(self : Array[T]) -> Path!PathError {
   let utsname = try @uv.os_uname!() catch {
     e => raise PathError::Errno(e)
@@ -417,7 +422,14 @@ impl Show for WindowsPath with output(self : WindowsPath, logger : &Logger) -> U
 
 ///|
 impl Show for PosixPath with output(self : PosixPath, logger : &Logger) -> Unit {
-  for i, part in self.parts {
+  let parts = match self.parts {
+    ["/", .. parts] => {
+      logger.write_char('/')
+      parts
+    }
+    [.. parts] => parts
+  }
+  for i, part in parts {
     if i > 0 {
       logger.write_char('/')
     }
@@ -448,5 +460,75 @@ pub impl @json.FromJson for Path with from_json(
   let string : String = @json.from_json!(json, path=json_path)
   try path!(string) catch {
     e => raise @json.JsonDecodeError((json_path, e.to_string()))
+  }
+}
+
+///|
+fn WindowsPath::relative_to(
+  self : WindowsPath,
+  other : WindowsPath
+) -> WindowsPath {
+  let self_length = self.parts.length()
+  let other_length = other.parts.length()
+  let length = @math.minimum(self_length, other_length)
+  let common_length = for i in 0..<length {
+    if self.parts[i] != other.parts[i] {
+      break i
+    }
+  } else {
+    length
+  }
+  let parts : Array[@string.View] = []
+  for i in common_length..<other_length {
+    parts.push("..")
+  }
+  for i in common_length..<self_length {
+    parts.push(self.parts[i])
+  }
+  return WindowsPath::new(parts)
+}
+
+///|
+fn PosixPath::relative_to(self : PosixPath, other : PosixPath) -> PosixPath {
+  let self_length = self.parts.length()
+  let other_length = other.parts.length()
+  let length = @math.minimum(self_length, other_length)
+  let common_length = for i in 0..<length {
+    if self.parts[i] != other.parts[i] {
+      break i
+    }
+  } else {
+    length
+  }
+  let parts : Array[@string.View] = []
+  for i in common_length..<other_length {
+    parts.push("..")
+  }
+  for i in common_length..<self_length {
+    parts.push(self.parts[i])
+  }
+  return PosixPath::{ parts, }
+}
+
+///|
+pub async fn[Other : ToPath] Path::relative_to(
+  self : Path,
+  other : Other
+) -> Path! {
+  match (self, other.to_path!()) {
+    (WindowsPath(self), WindowsPath(base)) =>
+      return WindowsPath(WindowsPath::relative_to(self, base))
+    (PosixPath(self), PosixPath(base)) =>
+      return PosixPath(PosixPath::relative_to(self, base))
+    _ => fail("Cannot compute relative path between Windows and Posix paths")
+  }
+}
+
+///|
+pub fn Path::is_absolute(self : Path) -> Bool {
+  match self {
+    WindowsPath(w) =>
+      w.parts.length() > 0 && w.parts[0].length() > 1 && w.parts[0][1] == ':'
+    PosixPath(p) => p.parts.length() > 0 && p.parts[0].has_prefix("/")
   }
 }

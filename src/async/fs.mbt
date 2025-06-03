@@ -306,13 +306,16 @@ pub async fn Path::resolve(self : Path) -> Path! {
 }
 
 ///|
-pub async fn Path::copy_to(self : Path, target : Path) -> Unit! {
+pub async fn[Target : ToPath] Path::copy_to(
+  self : Path,
+  target : Target
+) -> Unit! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
       uv.fs_copyfile!(
         self,
-        target,
+        target.to_path(),
         @uv.CopyFileFlags::new(),
         fn(_) { resolve(()) },
         fn(_, e) { reject(e) },
@@ -323,11 +326,16 @@ pub async fn Path::copy_to(self : Path, target : Path) -> Unit! {
 }
 
 ///|
-pub async fn Path::move_to(self : Path, target : Path) -> Unit! {
+pub async fn[Target : ToPath] Path::move_to(
+  self : Path,
+  target : Target
+) -> Unit! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
-      uv.fs_rename!(self, target, fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
+      uv.fs_rename!(self, target.to_path(), fn(_) { resolve(()) }, fn(_, e) {
+        reject(e)
+      }) catch {
       e => reject(e)
     }
   })
