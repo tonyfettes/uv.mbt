@@ -94,6 +94,7 @@ trait Executable {
   spawn(
     Self,
     Array[&Show],
+    cwd~ : Path?,
     stdin~ : ProcessInput,
     stdout~ : ProcessOutput,
     stderr~ : ProcessOutput,
@@ -104,6 +105,7 @@ trait Executable {
 pub impl Executable for String with spawn(
   self : String,
   args : Array[&Show],
+  cwd~ : Path?,
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
@@ -113,6 +115,7 @@ pub impl Executable for String with spawn(
       self,
       ..args.map(fn(arg) { arg.to_string().view() }),
     ]
+  let cwd = cwd.map(fn(cwd) { cwd.to_string().view() })
   let stdio = []
   stdin.create(stdio)
   stdout.create(stdio)
@@ -123,7 +126,7 @@ pub impl Executable for String with spawn(
     status: None,
     signal: None,
   }
-  let options = @uv.ProcessOptions::new(self, args, stdio~, fn(
+  let options = @uv.ProcessOptions::new(self, args, stdio~, cwd?, fn(
     child,
     exit_status,
     term_signal
@@ -144,21 +147,23 @@ pub impl Executable for String with spawn(
 pub impl Executable for Path with spawn(
   self : Path,
   args : Array[&Show],
+  cwd~ : Path?,
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
 ) -> Process!Error {
   let path = self.to_string()
-  path.spawn!(args, stdin~, stdout~, stderr~)
+  path.spawn!(args, cwd~, stdin~, stdout~, stderr~)
 }
 
 ///|
 pub async fn[Exec : Executable] spawn(
   exec : Exec,
   args : Array[&Show],
+  cwd? : Path,
   stdin~ : ProcessInput = Ignore,
   stdout~ : ProcessOutput = Ignore,
   stderr~ : ProcessOutput = Ignore
 ) -> Process! {
-  exec.spawn!(args, stdin~, stdout~, stderr~)
+  exec.spawn!(args, cwd~, stdin~, stdout~, stderr~)
 }
