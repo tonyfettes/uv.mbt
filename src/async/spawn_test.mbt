@@ -58,17 +58,19 @@ test "spawn: capture stdout and stderr" {
 ///|
 test "spawn: send stdin" {
   @async.start!(fn() {
-    let stdin = @async.Pipe::new!()
-    let stdout = @async.Pipe::new!()
-    let process = @async.spawn!(
-      "cat",
-      [],
-      stdin=Pipe(stdin),
-      stdout=Pipe(stdout),
-    )
-    stdin.write_bytes!("hello\n")
-    stdin.close!()
-    @json.inspect!(process.status!(), content=0)
-    @json.inspect!(stdout.read_text!(encoding=UTF8), content="hello\n")
+    if @async.system() != "Windows" {
+      let stdin = @async.Pipe::new!()
+      let stdout = @async.Pipe::new!()
+      let process = @async.spawn!(
+        "cat",
+        [],
+        stdin=Pipe(stdin),
+        stdout=Pipe(stdout),
+      )
+      stdin.write_bytes!("hello\n")
+      stdin.close!()
+      @json.inspect!(process.status!(), content=0)
+      @json.inspect!(stdout.read_text!(encoding=UTF8), content="hello\n")
+    }
   })
 }
