@@ -53,20 +53,34 @@ pub impl Writable for File with write(self : File, bytes : Iter[@bytes.View]) {
   fn write(
     uv : @uv.Loop,
     file : @uv.File,
+    offset : Int64,
     bytes : @bytes.View,
     resolve : (Unit) -> Unit,
     reject : (Error) -> Unit
   ) {
     if bytes.length() == 0 {
-      resolve(())
+      try
+        uv.fs_ftruncate(file, offset, fn(_) { resolve(()) }, fn(_, e) {
+          reject(e)
+        }) catch {
+        e => reject(e)
+      }
       return
     }
     try
       uv.fs_write!(
         file,
         [bytes[:]],
+        offset~,
         fn(_, count) {
-          async_run(fn() { write(uv, file, bytes[count:], resolve, reject) })
+          write(
+            uv,
+            file,
+            offset + count.to_int64(),
+            bytes[count:],
+            resolve,
+            reject,
+          )
         },
         fn(_, e) { reject(e) },
       ) catch {
@@ -77,13 +91,13 @@ pub impl Writable for File with write(self : File, bytes : Iter[@bytes.View]) {
   let uv = uv!()
   bytes.each!(fn(bytes) {
     async_suspend_with_error!(fn(resolve, reject) {
-      write(uv, self._, bytes, resolve, reject)
+      write(uv, self._, 0, bytes, resolve, reject)
     })
   })
 }
 
 ///|
-pub async fn &ToPath::read(self : &ToPath) -> Iter[@bytes.View]! {
+pub impl Readable for &ToPath with read(self : &ToPath) -> Iter[@bytes.View]! {
   let uv = uv!()
   fn(yield_) {
     async_suspend_with_error!(fn(
@@ -115,20 +129,10 @@ pub async fn &ToPath::read(self : &ToPath) -> Iter[@bytes.View]! {
 }
 
 ///|
-pub async fn &ToPath::read_bytes(self : &ToPath) -> Bytes! {
-  self.read!().bytes!()
-}
-
-///|
-pub async fn read_text(
+pub impl Writable for &ToPath with write(
   self : &ToPath,
-  encoding~ : @encoding.Encoding = UTF8
-) -> String! {
-  self.read!().text!(encoding~)
-}
-
-///|
-pub async fn &ToPath::write(self : &ToPath, bytes : Iter[@bytes.View]) -> Unit! {
+  bytes : Iter[@bytes.View]
+) -> Unit! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
@@ -152,21 +156,6 @@ pub async fn &ToPath::write(self : &ToPath, bytes : Iter[@bytes.View]) -> Unit! 
       e => reject(e)
     }
   })
-}
-
-///|
-pub async fn &ToPath::write_bytes(self : &ToPath, bytes : @bytes.View) -> Unit! {
-  self.write!(fn(yield_) { yield_!(bytes[:]) })
-}
-
-///|
-pub async fn &ToPath::write_text(
-  self : &ToPath,
-  text : @string.View,
-  encoding~ : @encoding.Encoding = UTF8
-) -> Unit! {
-  let bytes = @encoding.encode(text, encoding~)
-  self.write!(fn(yield_) { yield_!(bytes[:]) })
 }
 
 ///|
@@ -292,26 +281,51 @@ pub async fn &ToPath::resolve(self : &ToPath) -> &ToPath! {
 
 ///|
 pub type! SystemError {
-  Exists(&ToPath)
-  IsDirectory(&ToPath)
-  NotEmpty(&ToPath)
+  Exists(&ToPath, loc~ : Array[SourceLoc])
+  IsDirectory(&ToPath, loc~ : Array[SourceLoc])
+  NotEmpty(&ToPath, loc~ : Array[SourceLoc])
+  NotFound(&ToPath, loc~ : Array[SourceLoc])
 } derive(Show)
+
+///|
+fn SystemError::exists(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
+  Exists(path, loc=[loc])
+}
+
+///|
+fn SystemError::is_directory(
+  path : &ToPath,
+  loc~ : SourceLoc = _
+) -> SystemError {
+  IsDirectory(path, loc=[loc])
+}
+
+///|
+fn SystemError::not_empty(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
+  NotEmpty(path, loc=[loc])
+}
+
+///|
+fn SystemError::not_found(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
+  NotFound(path, loc=[loc])
+}
 
 ///|
 pub async fn[Target : ToPath] &ToPath::copy_to(
   self : &ToPath,
   target : Target,
   recursive~ : Bool = false,
-  overwrite~ : Bool = false
+  overwrite~ : Bool = false,
+  loc~ : SourceLoc = _
 ) -> Unit! {
   let uv = uv!()
   let target : &ToPath = target.to_path()
   if self.is_dir() {
     if not(recursive) {
-      raise IsDirectory(self)
+      raise SystemError::is_directory(self, loc~)
     }
     if not(overwrite) && target.exists() {
-      raise Exists(target)
+      raise SystemError::exists(target)
     }
     target.mkdir()
     self
@@ -371,25 +385,34 @@ pub async fn &ToPath::unlink(self : &ToPath) -> Unit! {
 ///|
 pub async fn &ToPath::rmdir(self : &ToPath) -> Unit! {
   let uv = uv!()
-  async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
-    try
-      uv.fs_rmdir!(self.to_path(), fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
-      e => reject(e)
-    }
-  })
+  try
+    async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+      try
+        uv.fs_rmdir!(self.to_path(), fn(_) { resolve(()) }, fn(_, e) {
+          reject(e)
+        }) catch {
+        e => reject(e)
+      }
+    }) catch! {
+    @uv.Errno(ENOTEMPTY) => raise SystemError::not_empty(self)
+    @uv.Errno(ENOENT) => raise SystemError::not_found(self)
+  }
 }
 
 ///|
 pub async fn &ToPath::mkdir(self : &ToPath, mode~ : Int = 0o777) -> Unit! {
   let uv = uv!()
-  async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
-    try
-      uv.fs_mkdir(self.to_path(), mode, fn(_) { resolve(()) }, fn(_, e) {
-        reject(e)
-      }) catch {
-      e => reject(e)
-    }
-  })
+  try
+    async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
+      try
+        uv.fs_mkdir(self.to_path(), mode, fn(_) { resolve(()) }, fn(_, e) {
+          reject(e)
+        }) catch {
+        e => reject(e)
+      }
+    }) catch! {
+    @uv.Errno(EEXIST) => raise SystemError::exists(self)
+  }
 }
 
 ///|
@@ -426,7 +449,8 @@ pub async fn &ToPath::exists(self : &ToPath) -> Bool! {
 ///|
 pub async fn &ToPath::remove(
   self : &ToPath,
-  recursive~ : Bool = false
+  recursive~ : Bool = false,
+  loc~ : SourceLoc = _
 ) -> Unit! {
   if self.is_dir() {
     let entries = self.iter!().collect()
@@ -434,7 +458,7 @@ pub async fn &ToPath::remove(
       self.rmdir!()
     }
     if not(recursive) {
-      raise NotEmpty(self)
+      raise NotEmpty(self, loc=[loc])
     }
     for entry in entries {
       entry.remove!(recursive~)

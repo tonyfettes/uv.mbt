@@ -12,9 +12,9 @@ test "write" {
   @async.start!(fn() {
     let path = @async.path(["test", "fixtures", "example_write.txt"])
     @json.inspect!(path.stat?().is_err(), content=true)
-    path.write_text("Hello, world!")
+    path.write_text("Hello, world!", encoding=UTF8)
     @json.inspect!(path.stat!().is_file(), content=true)
-    @json.inspect!(path.read_text(), content="Hello, world!")
+    @json.inspect!(path.read_text(encoding=UTF8), content="Hello, world!")
     path.unlink!()
     @json.inspect!(path.stat?().is_err(), content=true)
   })
