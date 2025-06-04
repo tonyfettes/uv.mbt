@@ -1,7 +1,7 @@
 ///|
 test "open" {
   @async.start!(fn() {
-    let moon_mod_json = @async.path!("moon.mod.json").read!().text!()
+    let moon_mod_json = @async.path("moon.mod.json").read().text!()
       |> @json.parse!()
     assert_true!(moon_mod_json is Object({ "name": "tonyfettes/uv", .. }))
   })
@@ -10,11 +10,11 @@ test "open" {
 ///|
 test "write" {
   @async.start!(fn() {
-    let path = @async.path!(["test", "fixtures", "example_write.txt"])
+    let path = @async.path(["test", "fixtures", "example_write.txt"])
     @json.inspect!(path.stat?().is_err(), content=true)
-    path.write_text!("Hello, world!")
+    path.write_text("Hello, world!")
     @json.inspect!(path.stat!().is_file(), content=true)
-    @json.inspect!(path.read_text!(), content="Hello, world!")
+    @json.inspect!(path.read_text(), content="Hello, world!")
     path.unlink!()
     @json.inspect!(path.stat?().is_err(), content=true)
   })
@@ -23,18 +23,18 @@ test "write" {
 ///|
 test "scandir" {
   @async.start!(fn() {
-    @json.inspect!(@async.path!(["test", "fixtures"]).iter!().collect(), content=[
+    @json.inspect!(@async.path(["test", "fixtures"]).iter!().collect(), content=[
       "test/fixtures/example.txt",
     ])
   })
 }
 
 ///|
-test "copy_to" {
+test "copy_to/file" {
   @async.start!(fn() {
-    let src = @async.path!(["test", "fixtures", "example.txt"])
+    let src = @async.path(["test", "fixtures", "example.txt"])
     assert_true!(src.stat!().is_file())
-    let dst = @async.path!(["test", "fixtures", "example_copy.txt"])
+    let dst = @async.path(["test", "fixtures", "example_copy.txt"])
     assert_true!(dst.stat?().is_err())
     try {
       src.copy_to!(dst)
@@ -50,9 +50,21 @@ test "copy_to" {
 }
 
 ///|
+test "copy_to/directory" {
+  @async.start(fn() {
+    let src = @async.path("src")
+    let dst = @async.path("src_copy")
+    src.copy_to!(dst, recursive=true)
+    assert_true(dst.is_dir())
+    assert_true(dst.iter().collect().length() > 0)
+    dst.remove!(recursive=true)
+  })
+}
+
+///|
 test "exists" {
   @async.start!(fn() {
-    let path = @async.path!(["test", "fixtures", "example.txt"])
+    let path = @async.path(["test", "fixtures", "example.txt"])
     @json.inspect!(path.exists!(), content=true)
   })
 }

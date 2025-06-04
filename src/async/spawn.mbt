@@ -94,7 +94,7 @@ trait Executable {
   spawn(
     Self,
     Array[&Show],
-    cwd~ : Path?,
+    cwd~ : &ToPath?,
     stdin~ : ProcessInput,
     stdout~ : ProcessOutput,
     stderr~ : ProcessOutput,
@@ -105,7 +105,7 @@ trait Executable {
 pub impl Executable for String with spawn(
   self : String,
   args : Array[&Show],
-  cwd~ : Path?,
+  cwd~ : &ToPath?,
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
@@ -144,10 +144,10 @@ pub impl Executable for String with spawn(
 }
 
 ///|
-pub impl Executable for Path with spawn(
-  self : Path,
+pub impl Executable for &ToPath with spawn(
+  self : &ToPath,
   args : Array[&Show],
-  cwd~ : Path?,
+  cwd~ : &ToPath?,
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
@@ -160,7 +160,7 @@ pub impl Executable for Path with spawn(
 pub async fn[Exec : Executable] spawn(
   exec : Exec,
   args : Array[&Show],
-  cwd? : Path,
+  cwd? : &ToPath,
   stdin~ : ProcessInput = Ignore,
   stdout~ : ProcessOutput = Ignore,
   stderr~ : ProcessOutput = Ignore

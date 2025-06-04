@@ -52,8 +52,8 @@ pub fn[T] start(f : async () -> T!) -> T! {
 }
 
 ///|
-pub fn cwd() -> Path! {
-  path!(@uv.cwd!())
+pub fn cwd() -> &ToPath! {
+  path(@uv.cwd())
 }
 
 ///|

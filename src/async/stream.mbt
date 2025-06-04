@@ -2,6 +2,13 @@
 type Iter[T] async (async (T) -> Unit!) -> Unit!
 
 ///|
+pub async fn[T] Iter::collect(self : Iter[T]) -> Array[T]! {
+  let array = []
+  (self._)!(fn(item) { array.push(item) })
+  array
+}
+
+///|
 pub async fn Iter::text(
   self : Iter[@bytes.View],
   encoding~ : @encoding.Encoding = UTF8
@@ -68,11 +75,23 @@ impl Readable with read_bytes(self : Self) {
 ///|
 pub trait Writable {
   async write(Self, Iter[@bytes.View]) -> Unit!Error
+  async write_text(Self, @string.View, encoding~ : @encoding.Encoding) ->
+       Unit!Error = _
   async write_bytes(Self, @bytes.View) -> Unit!Error = _
 }
 
 ///|
 impl Writable with write_bytes(self : Self, bytes : @bytes.View) {
+  self.write!(fn(yield_) { yield_!(bytes[:]) })
+}
+
+///|
+impl Writable with write_text(
+  self : Self,
+  text : @string.View,
+  encoding~ : @encoding.Encoding
+) {
+  let bytes = @encoding.encode(text, encoding~)
   self.write!(fn(yield_) { yield_!(bytes[:]) })
 }
 

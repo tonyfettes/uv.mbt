@@ -2,7 +2,6 @@ package "tonyfettes/uv/async"
 
 import(
   "moonbitlang/core/buffer"
-  "moonbitlang/core/builtin"
   "moonbitlang/core/bytes"
   "moonbitlang/core/json"
   "moonbitlang/core/string"
@@ -10,19 +9,23 @@ import(
 )
 
 // Values
-fn cwd() -> Path!
+fn cwd() -> &ToPath!
 
-fn[Input : ToPath] path(Input) -> Path!PathError
+fn[Input : ToPath] path(Input) -> &ToPath
 
-async fn read(Path) -> Iter[@bytes.View]!
+async fn read_text(&ToPath, encoding~ : @encoding.Encoding = ..) -> String!
 
-async fn read_bytes(Path) -> Bytes!
-
-async fn read_text(Path, encoding~ : @encoding.Encoding = ..) -> String!
-
-async fn[Exec : Executable] spawn(Exec, Array[&Show], stdin~ : ProcessInput = .., stdout~ : ProcessOutput = .., stderr~ : ProcessOutput = ..) -> Process!
+async fn[Exec : Executable] spawn(Exec, Array[&Show], cwd? : &ToPath, stdin~ : ProcessInput = .., stdout~ : ProcessOutput = .., stderr~ : ProcessOutput = ..) -> Process!
 
 fn[T] start(() -> T!) -> T!
+
+let stderr : File
+
+let stdin : File
+
+let stdout : File
+
+fn system() -> String!
 
 // Types and methods
 type File
@@ -31,6 +34,7 @@ impl Writable for File
 
 type Iter[T]
 async fn Iter::bytes(Self[@bytes.View]) -> Bytes!
+async fn[T] Iter::collect(Self[T]) -> Array[T]!
 async fn Iter::decode(Self[@bytes.View], encoding~ : @encoding.Encoding) -> Self[String]
 async fn[T] Iter::each(Self[T], (T) -> Unit!) -> Unit!
 async fn Iter::text(Self[@bytes.View], encoding~ : @encoding.Encoding = ..) -> String!
@@ -42,33 +46,11 @@ pub(all) enum OpenFlags {
 }
 
 type Path
-async fn Path::access(Self, read~ : Bool = .., write~ : Bool = .., execute~ : Bool = ..) -> Unit!
-async fn Path::copy_to(Self, Self) -> Unit!
-async fn Path::exists(Self) -> Bool!
-async fn Path::is_dir(Self) -> Bool!
-async fn Path::is_file(Self) -> Bool!
-async fn Path::iter(Self) -> @builtin.Iter[Self]!
-async fn Path::move_to(Self, Self) -> Unit!
-async fn Path::read(Self) -> Iter[@bytes.View]!
-async fn Path::read_bytes(Self) -> Bytes!
-async fn Path::read_text(Self, encoding~ : @encoding.Encoding = ..) -> String!
-async fn Path::resolve(Self) -> Self!
-async fn Path::stat(Self) -> Stat!
-async fn Path::unlink(Self) -> Unit!
-async fn Path::walk(Self) -> Iter[Self]!
-async fn Path::write(Self, Iter[@bytes.View]) -> Unit!
-async fn Path::write_bytes(Self, @bytes.View) -> Unit!
-async fn Path::write_text(Self, @string.StringView, encoding~ : @encoding.Encoding = ..) -> Unit!
-impl Div for Path
+fn Path::is_absolute(Self) -> Bool
+fn[Other : ToPath] Path::relative_to(Self, Other) -> Self!
 impl Eq for Path
-impl Show for Path
-impl ToJson for Path
-impl @json.FromJson for Path
 impl @tonyfettes/uv.ToNtbs for Path
-impl Executable for Path
-
-type PathError
-impl Show for PathError
+impl ToPath for Path
 
 type Pipe
 async fn Pipe::close(Self) -> Unit
@@ -110,15 +92,49 @@ type Stat
 fn Stat::is_dir(Self) -> Bool
 fn Stat::is_file(Self) -> Bool
 
+pub type! SystemError {
+  Exists
+  IsDirectory
+}
+
 type Task[T]
 fn[T] Task::new(() -> T!) -> Self[T]
 async fn[T] Task::start(Self[T]) -> T!
+
+async fn ToPath::access(&Self, read~ : Bool = .., write~ : Bool = .., execute~ : Bool = ..) -> Unit!
+async fn[Target : ToPath] ToPath::copy_to(&Self, Target, recursive~ : Bool = .., overwrite~ : Bool = ..) -> Unit!
+async fn ToPath::exists(&Self) -> Bool!
+async fn ToPath::is_dir(&Self) -> Bool!
+async fn ToPath::is_file(&Self) -> Bool!
+async fn ToPath::iter(&Self) -> Iter[&Self]!
+async fn ToPath::mkdir(&Self, mode~ : Int = ..) -> Unit!
+async fn[Target : ToPath] ToPath::move_to(&Self, Target) -> Unit!
+fn ToPath::name(&Self) -> String
+async fn ToPath::read(&Self) -> Iter[@bytes.View]!
+async fn ToPath::read_bytes(&Self) -> Bytes!
+async fn ToPath::read_text(&Self, encoding~ : @encoding.Encoding = ..) -> String!
+fn[Other : ToPath] ToPath::relative_to(&Self, Other) -> &Self!
+async fn ToPath::remove(&Self, recursive~ : Bool = ..) -> Unit!
+async fn ToPath::resolve(&Self) -> &Self!
+async fn ToPath::rmdir(&Self) -> Unit!
+async fn ToPath::stat(&Self) -> Stat!
+async fn ToPath::unlink(&Self) -> Unit!
+async fn ToPath::walk(&Self) -> Iter[&Self]!
+async fn ToPath::write(&Self, Iter[@bytes.View]) -> Unit!
+async fn ToPath::write_bytes(&Self, @bytes.View) -> Unit!
+async fn ToPath::write_text(&Self, @string.StringView, encoding~ : @encoding.Encoding = ..) -> Unit!
+impl Div for &ToPath
+impl Eq for &ToPath
+impl Show for &ToPath
+impl ToJson for &ToPath
+impl @json.FromJson for &ToPath
 
 // Type aliases
 
 // Traits
 trait Executable
 impl Executable for String
+impl Executable for &ToPath
 
 pub trait Readable {
   async read(Self) -> Iter[@bytes.View]!
@@ -129,7 +145,7 @@ impl Readable for Bytes
 impl Readable for @bytes.View
 
 pub trait ToPath {
-  to_path(Self) -> Path!PathError
+  to_path(Self) -> Path
 }
 impl ToPath for String
 impl[T : ToPath] ToPath for Array[T]
@@ -137,6 +153,7 @@ impl ToPath for @string.StringView
 
 pub trait Writable {
   async write(Self, Iter[@bytes.View]) -> Unit!
+  async write_text(Self, @string.StringView, encoding~ : @encoding.Encoding) -> Unit!
   async write_bytes(Self, @bytes.View) -> Unit!
 }
 impl Writable for @buffer.T

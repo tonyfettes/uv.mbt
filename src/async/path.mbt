@@ -320,8 +320,8 @@ fn Path::parent(self : Path) -> Path {
 }
 
 ///|
-pub impl Div for Path with op_div(self : Path, other : Path) -> Path {
-  match (self, other) {
+pub impl Div for &ToPath with op_div(self : &ToPath, other : &ToPath) -> &ToPath {
+  match (self.to_path(), other.to_path()) {
     (WindowsPath(self), WindowsPath(other)) => WindowsPath(self / other)
     (PosixPath(self), PosixPath(other)) => PosixPath(self / other)
     _ => abort("Cannot combine Windows and Posix paths")
@@ -338,18 +338,13 @@ pub impl @uv.ToNtbs for Path with to_ntbs(self : Path) -> Bytes {
 
 ///|
 pub trait ToPath {
-  to_path(Self) -> Path!PathError
+  to_path(Self) -> Path
 }
 
 ///|
-type! PathError {
-  Errno(@uv.Errno)
-} derive(Show)
-
-///|
-pub impl ToPath for @string.View with to_path(self : @string.View) -> Path!PathError {
+pub impl ToPath for @string.View with to_path(self : @string.View) -> Path {
   let utsname = try @uv.os_uname!() catch {
-    e => raise PathError::Errno(e)
+    e => abort(e.to_string())
   }
   if utsname.sysname() == "Windows_NT" {
     return WindowsPath(ToWindowsPath::to_windows_path(self))
@@ -359,34 +354,34 @@ pub impl ToPath for @string.View with to_path(self : @string.View) -> Path!PathE
 }
 
 ///|
-pub impl ToPath for String with to_path(self : String) -> Path!PathError {
-  ToPath::to_path!(self.view())
+pub impl ToPath for String with to_path(self : String) -> Path {
+  ToPath::to_path(self.view())
 }
 
 ///|
-pub impl ToPath for Path with to_path(self : Path) -> Path!PathError {
+pub impl ToPath for Path with to_path(self : Path) -> Path {
   return self
 }
 
 ///|
-pub impl[T : ToPath] ToPath for Array[T] with to_path(self : Array[T]) -> Path!PathError {
+pub impl[T : ToPath] ToPath for Array[T] with to_path(self : Array[T]) -> Path {
   let utsname = try @uv.os_uname!() catch {
-    e => raise PathError::Errno(e)
+    e => abort(e.to_string())
   }
-  let mut path : Path = if utsname.sysname() == "Windows_NT" {
+  let mut path : &ToPath = if utsname.sysname() == "Windows_NT" {
     WindowsPath(WindowsPath::new([]))
   } else {
     PosixPath(PosixPath::{ parts: [] })
   }
   for part in self {
-    path = path / part.to_path!()
+    path = path as &ToPath / part
   }
-  return path
+  return path.to_path()
 }
 
 ///|
-pub fn[Input : ToPath] path(path : Input) -> Path!PathError {
-  path.to_path!()
+pub fn[Input : ToPath] path(path : Input) -> &ToPath {
+  path.to_path()
 }
 
 ///|
@@ -402,6 +397,15 @@ impl Eq for PosixPath with op_equal(self : PosixPath, other : PosixPath) -> Bool
 ///|
 pub impl Eq for Path with op_equal(self : Path, other : Path) -> Bool {
   match (self, other) {
+    (WindowsPath(self), WindowsPath(other)) => self == other
+    (PosixPath(self), PosixPath(other)) => self == other
+    _ => false
+  }
+}
+
+///|
+pub impl Eq for &ToPath with op_equal(self : &ToPath, other : &ToPath) -> Bool {
+  match (self.to_path(), other.to_path()) {
     (WindowsPath(self), WindowsPath(other)) => self == other
     (PosixPath(self), PosixPath(other)) => self == other
     _ => false
@@ -441,26 +445,29 @@ impl Show for PosixPath with output(self : PosixPath, logger : &Logger) -> Unit 
 
 ///|
 pub impl Show for Path with output(self : Path, logger : &Logger) -> Unit {
-  match self {
+  match self.to_path() {
     WindowsPath(w) => w.output(logger)
     PosixPath(p) => p.output(logger)
   }
 }
 
 ///|
-pub impl ToJson for Path with to_json(self : Path) -> Json {
+pub impl Show for &ToPath with output(self : &ToPath, logger : &Logger) -> Unit {
+  self.to_path().output(logger)
+}
+
+///|
+pub impl ToJson for &ToPath with to_json(self : &ToPath) -> Json {
   self.to_string().to_json()
 }
 
 ///|
-pub impl @json.FromJson for Path with from_json(
+pub impl @json.FromJson for &ToPath with from_json(
   json : Json,
   json_path : @json.JsonPath
-) -> Path!@json.JsonDecodeError {
+) -> &ToPath!@json.JsonDecodeError {
   let string : String = @json.from_json!(json, path=json_path)
-  try path!(string) catch {
-    e => raise @json.JsonDecodeError((json_path, e.to_string()))
-  }
+  path(string)
 }
 
 ///|
@@ -511,11 +518,22 @@ fn PosixPath::relative_to(self : PosixPath, other : PosixPath) -> PosixPath {
 }
 
 ///|
-pub async fn[Other : ToPath] Path::relative_to(
-  self : Path,
+pub fn[Other : ToPath] &ToPath::relative_to(
+  self : &ToPath,
   other : Other
-) -> Path! {
-  match (self, other.to_path!()) {
+) -> &ToPath! {
+  match (self.to_path(), other.to_path()) {
+    (WindowsPath(self), WindowsPath(base)) =>
+      return WindowsPath(WindowsPath::relative_to(self, base))
+    (PosixPath(self), PosixPath(base)) =>
+      return PosixPath(PosixPath::relative_to(self, base))
+    _ => fail("Cannot compute relative path between Windows and Posix paths")
+  }
+}
+
+///|
+pub fn[Other : ToPath] Path::relative_to(self : Path, other : Other) -> Path! {
+  match (self.to_path(), other.to_path()) {
     (WindowsPath(self), WindowsPath(base)) =>
       return WindowsPath(WindowsPath::relative_to(self, base))
     (PosixPath(self), PosixPath(base)) =>
@@ -531,4 +549,17 @@ pub fn Path::is_absolute(self : Path) -> Bool {
       w.parts.length() > 0 && w.parts[0].length() > 1 && w.parts[0][1] == ':'
     PosixPath(p) => p.parts.length() > 0 && p.parts[0].has_prefix("/")
   }
+}
+
+///|
+fn Path::name(self : Path) -> String {
+  match self {
+    WindowsPath(w) => w.parts[w.parts.length() - 1].to_string()
+    PosixPath(p) => p.parts[p.parts.length() - 1].to_string()
+  }
+}
+
+///|
+pub fn &ToPath::name(self : &ToPath) -> String {
+  self.to_path().name()
 }
