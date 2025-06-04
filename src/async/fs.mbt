@@ -418,9 +418,8 @@ pub async fn &ToPath::exists(self : &ToPath) -> Bool! {
   try {
     self.access!()
     true
-  } catch {
+  } catch! {
     @uv.Errno(ENOENT) => false
-    e => raise e
   }
 }
 
