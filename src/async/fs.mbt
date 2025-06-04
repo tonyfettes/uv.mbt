@@ -454,14 +454,13 @@ pub async fn &ToPath::remove(
 ) -> Unit! {
   if self.is_dir() {
     let entries = self.iter!().collect()
-    if entries.is_empty() {
-      self.rmdir!()
-    }
-    if not(recursive) {
-      raise NotEmpty(self, loc=[loc])
-    }
-    for entry in entries {
-      entry.remove!(recursive~)
+    if not(entries.is_empty()) {
+      if not(recursive) {
+        raise NotEmpty(self, loc=[loc])
+      }
+      for entry in entries {
+        entry.remove!(recursive~)
+      }
     }
     self.rmdir()
   } else {
