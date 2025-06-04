@@ -53,35 +53,19 @@ pub impl Writable for File with write(self : File, bytes : Iter[@bytes.View]) {
   fn write(
     uv : @uv.Loop,
     file : @uv.File,
-    offset : Int64,
     bytes : @bytes.View,
     resolve : (Unit) -> Unit,
     reject : (Error) -> Unit
   ) {
     if bytes.length() == 0 {
-      try
-        uv.fs_ftruncate(file, offset, fn(_) { resolve(()) }, fn(_, e) {
-          reject(e)
-        }) catch {
-        e => reject(e)
-      }
+      resolve(())
       return
     }
     try
       uv.fs_write!(
         file,
         [bytes[:]],
-        offset~,
-        fn(_, count) {
-          write(
-            uv,
-            file,
-            offset + count.to_int64(),
-            bytes[count:],
-            resolve,
-            reject,
-          )
-        },
+        fn(_, count) { write(uv, file, bytes[count:], resolve, reject) },
         fn(_, e) { reject(e) },
       ) catch {
       e => reject(e)
@@ -91,7 +75,7 @@ pub impl Writable for File with write(self : File, bytes : Iter[@bytes.View]) {
   let uv = uv!()
   bytes.each!(fn(bytes) {
     async_suspend_with_error!(fn(resolve, reject) {
-      write(uv, self._, 0, bytes, resolve, reject)
+      write(uv, self._, bytes, resolve, reject)
     })
   })
 }
@@ -138,7 +122,7 @@ pub impl Writable for &ToPath with write(
     try
       uv.fs_open!(
         self.to_path(),
-        @uv.OpenFlags::write(create=true),
+        @uv.OpenFlags::write(create=true, truncate=true),
         0o644,
         fn(_, file) {
           let file = File(file)

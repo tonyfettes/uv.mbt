@@ -21,6 +21,22 @@ test "write" {
 }
 
 ///|
+test "write/stdio" {
+  @async.start(fn() { @async.stdout.write_text("Hello, world!\n", encoding=UTF8) })
+}
+
+///|
+test "write/truncate" {
+  @async.start(fn() {
+    let readme = @async.path("README.md")
+    let backup = readme.read_text(encoding=UTF8)
+    readme.write_bytes("")
+    @json.inspect!(readme.read_text(encoding=UTF8), content="")
+    readme.write_text(backup, encoding=UTF8)
+  })
+}
+
+///|
 test "scandir" {
   @async.start!(fn() {
     @json.inspect!(@async.path(["test", "fixtures"]).iter!().collect(), content=[
