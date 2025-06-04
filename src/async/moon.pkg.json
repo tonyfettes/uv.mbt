@@ -15,10 +15,16 @@
     "pipe.mbt": [
       "native"
     ],
+    "platform.mbt": [
+      "native"
+    ],
     "spawn_test.mbt": [
       "native"
     ],
     "spawn.mbt": [
+      "native"
+    ],
+    "stdio.mbt": [
       "native"
     ],
     "stream.mbt": [
@@ -28,5 +34,5 @@
   "import": [
     "tonyfettes/uv",
     "tonyfettes/encoding"
-  ]   
+  ]
 }
