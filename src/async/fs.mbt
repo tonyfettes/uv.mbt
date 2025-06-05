@@ -264,16 +264,67 @@ pub async fn &ToPath::resolve(self : &ToPath) -> &ToPath! {
 }
 
 ///|
-pub type! SystemError {
-  Exists(&ToPath, loc~ : Array[SourceLoc])
-  IsDirectory(&ToPath, loc~ : Array[SourceLoc])
-  NotEmpty(&ToPath, loc~ : Array[SourceLoc])
-  NotFound(&ToPath, loc~ : Array[SourceLoc])
-} derive(Show)
+enum ErrorInfo {
+  Exists(&ToPath)
+  IsDirectory(&ToPath)
+  NotEmpty(&ToPath)
+  NotFound(&ToPath)
+}
+
+///|
+impl Show for ErrorInfo with output(self : ErrorInfo, logger : &Logger) -> Unit {
+  match self {
+    Exists(path) => logger.write_string("Exists: \{path.to_string()}")
+    IsDirectory(path) => logger.write_string("IsDirectory: \{path.to_string()}")
+    NotEmpty(path) => logger.write_string("NotEmpty: \{path.to_string()}")
+    NotFound(path) => logger.write_string("NotFound: \{path.to_string()}")
+  }
+}
+
+///|
+impl Show for SystemError with output(self : SystemError, logger : &Logger) -> Unit {
+  let uv = try? uv()
+  let SystemError((value, trace)) = self
+  logger.write_string("Trace:\n")
+  for i = trace.length() - 1; i >= 0; i = i - 1 {
+    let loc = trace[i].to_string()
+    logger.write_string("  \{loc}\n")
+    guard uv is Ok(uv) else { continue }
+    guard loc.to_string().split(":").collect()
+      is [.. file_parts, start_row, _, _] else {
+      continue
+    }
+    let file = file_parts.map(_.to_string()).join("/")
+    try {
+      let start_row = @strconv.parse_int(start_row.to_string())
+      let content = StringBuilder::new()
+      let decoder = @encoding.decoder(UTF8)
+      let buffer = Bytes::make(1024, 0)
+      let file = uv.fs_open_sync(file.to_string(), @uv.OpenFlags::read(), 0o644)
+      for nread = uv.fs_read_sync(file, [buffer[:]])
+          nread > 0
+          nread = uv.fs_read_sync(file, [buffer[:]]) {
+        decoder.decode_to(buffer[:nread], content, stream=true)
+      }
+      let content = content.to_string()
+      let lines = content.split("\n").collect()
+      logger.write_string("  \{lines[start_row - 1]}\n")
+    } catch {
+      e => {
+        println("  (error processing source location: \{e})")
+        continue
+      }
+    }
+  }
+  logger.write_string(value.to_string())
+}
+
+///|
+pub type! SystemError (ErrorInfo, Array[SourceLoc])
 
 ///|
 fn SystemError::exists(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
-  Exists(path, loc=[loc])
+  SystemError((Exists(path), [loc]))
 }
 
 ///|
@@ -281,17 +332,27 @@ fn SystemError::is_directory(
   path : &ToPath,
   loc~ : SourceLoc = _
 ) -> SystemError {
-  IsDirectory(path, loc=[loc])
+  SystemError((IsDirectory(path), [loc]))
 }
 
 ///|
 fn SystemError::not_empty(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
-  NotEmpty(path, loc=[loc])
+  SystemError((NotEmpty(path), [loc]))
 }
 
 ///|
 fn SystemError::not_found(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
-  NotFound(path, loc=[loc])
+  SystemError((NotFound(path), [loc]))
+}
+
+///|
+fn SystemError::rethrow(
+  self : SystemError,
+  loc~ : SourceLoc = _
+) -> Unit!SystemError {
+  let SystemError((_, trace)) = self
+  trace.push(loc)
+  raise self
 }
 
 ///|
@@ -302,35 +363,39 @@ pub async fn[Target : ToPath] &ToPath::copy_to(
   overwrite~ : Bool = false,
   loc~ : SourceLoc = _
 ) -> Unit! {
-  let uv = uv!()
-  let target : &ToPath = target.to_path()
-  if self.is_dir() {
-    if not(recursive) {
-      raise SystemError::is_directory(self, loc~)
-    }
-    if not(overwrite) && target.exists() {
-      raise SystemError::exists(target)
-    }
-    target.mkdir()
-    self
-    .iter()
-    .each(fn(entry) {
-      let target_entry = target / entry.relative_to(self)
-      entry.copy_to!(target_entry, recursive~, overwrite~)
-    })
-  } else {
-    async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
-      try
-        uv.fs_copyfile!(
-          self.to_path(),
-          target.to_path(),
-          @uv.CopyFileFlags::new(allow_exists=overwrite),
-          fn(_) { resolve(()) },
-          fn(_, e) { reject(e) },
-        ) catch {
-        e => reject(e)
+  try {
+    let uv = uv!()
+    let target : &ToPath = target.to_path()
+    if self.is_dir() {
+      if not(recursive) {
+        raise SystemError::is_directory(self)
       }
-    })
+      if not(overwrite) && target.exists() {
+        raise SystemError::exists(target)
+      }
+      target.mkdir()
+      self
+      .iter()
+      .each(fn(entry) {
+        let target_entry = target / entry.relative_to(self)
+        entry.copy_to!(target_entry, recursive~, overwrite~)
+      })
+    } else {
+      async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+        try
+          uv.fs_copyfile!(
+            self.to_path(),
+            target.to_path(),
+            @uv.CopyFileFlags::new(allow_exists=overwrite),
+            fn(_) { resolve(()) },
+            fn(_, e) { reject(e) },
+          ) catch {
+          e => reject(e)
+        }
+      })
+    }
+  } catch! {
+    SystemError(_) as system_error => system_error.rethrow(loc~)
   }
 }
 
@@ -367,7 +432,7 @@ pub async fn &ToPath::unlink(self : &ToPath) -> Unit! {
 }
 
 ///|
-pub async fn &ToPath::rmdir(self : &ToPath) -> Unit! {
+pub async fn &ToPath::rmdir(self : &ToPath, loc~ : SourceLoc = _) -> Unit! {
   let uv = uv!()
   try
     async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
@@ -378,8 +443,8 @@ pub async fn &ToPath::rmdir(self : &ToPath) -> Unit! {
         e => reject(e)
       }
     }) catch! {
-    @uv.Errno(ENOTEMPTY) => raise SystemError::not_empty(self)
-    @uv.Errno(ENOENT) => raise SystemError::not_found(self)
+    @uv.Errno(ENOTEMPTY) => raise SystemError::not_empty(self, loc~)
+    @uv.Errno(ENOENT) => raise SystemError::not_found(self, loc~)
   }
 }
 
@@ -436,18 +501,24 @@ pub async fn &ToPath::remove(
   recursive~ : Bool = false,
   loc~ : SourceLoc = _
 ) -> Unit! {
-  if self.is_dir() {
-    let entries = self.iter!().collect()
-    if not(entries.is_empty()) {
-      if not(recursive) {
-        raise NotEmpty(self, loc=[loc])
+  try {
+    if self.is_dir() {
+      let entries = self.iter!().collect()
+      if not(entries.is_empty()) {
+        if not(recursive) {
+          raise SystemError::not_empty(self)
+        }
+        Scope::new(fn(scope) {
+          for entry in entries {
+            scope.launch(fn() { entry.remove!(recursive~) })
+          }
+        })
       }
-      for entry in entries {
-        entry.remove!(recursive~)
-      }
+      self.rmdir()
+    } else {
+      self.unlink()
     }
-    self.rmdir()
-  } else {
-    self.unlink()
+  } catch! {
+    SystemError(_) as system_error => system_error.rethrow(loc~)
   }
 }
