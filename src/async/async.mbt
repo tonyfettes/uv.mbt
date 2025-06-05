@@ -57,22 +57,58 @@ pub fn cwd() -> &ToPath! {
 }
 
 ///|
-struct Task[T] {
-  f : async () -> T!
+priv struct Scope[E] {
+  mut launched : Int
+  mut canceled : Bool
+  resolve : (Unit) -> Unit
+  reject : (E) -> Unit
 }
 
 ///|
-pub fn[T] Task::new(f : async () -> T!) -> Task[T] {
-  Task::{ f, }
+fn[E] Scope::resolve(self : Scope[E]) -> Unit {
+  self.launched -= 1
+  if self.launched == 0 {
+    (self.resolve)(())
+  }
 }
 
 ///|
-pub async fn[T] Task::start(self : Task[T]) -> T! {
-  async_suspend_with_error!(fn(resolve, reject) {
-    async_run(fn() {
-      try resolve((self.f)!()) catch {
-        e => reject(e)
-      }
-    })
+fn[E] Scope::reject(self : Scope[E], error : E) -> Unit {
+  self.canceled = true
+  self.launched -= 1
+  if self.launched == 0 {
+    (self.reject)(error)
+  }
+}
+
+///|
+fn[E : Error] Scope::launch(self : Scope[E], f : async () -> Unit!E) -> Unit {
+  if self.canceled {
+    return
+  }
+  self.launched += 1
+  async_run(fn() {
+    try {
+      f!()
+      self.resolve()
+    } catch {
+      e => self.reject(e)
+    }
   })
+}
+
+///|
+async fn[T, E : Error] Scope::new(f : async (Scope[E]) -> T!E) -> T!E {
+  let mut value = None
+  async_suspend_with_error!(fn(resolve, reject : (E) -> Unit) {
+    let scope = Scope::{ launched: 0, canceled: false, resolve, reject }
+    scope.launch(fn() { value = Some(f(scope)) })
+  })
+  guard value is Some(value)
+  value
+}
+
+///|
+pub fn args() -> Array[String] {
+  @uv.args()
 }
