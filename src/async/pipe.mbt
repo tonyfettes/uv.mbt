@@ -14,7 +14,7 @@ pub async fn Pipe::close(self : Pipe) -> Unit {
 
 ///|
 pub impl Readable for Pipe with read(self : Pipe) {
-  self._.to_stream().read!()
+  self._.to_stream() |> Readable::read!()
 }
 
 ///|

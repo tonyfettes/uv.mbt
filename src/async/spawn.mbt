@@ -152,8 +152,8 @@ pub impl Executable for &ToPath with spawn(
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
 ) -> Process!Error {
-  let path = self.to_string()
-  path.spawn!(args, cwd~, stdin~, stdout~, stderr~)
+  self.to_string()
+  |> Executable::spawn(args, cwd~, stdin~, stdout~, stderr~)
 }
 
 ///|
