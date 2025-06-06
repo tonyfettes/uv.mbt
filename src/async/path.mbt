@@ -312,8 +312,8 @@ fn WindowsPath::parent(self : WindowsPath) -> WindowsPath {
 }
 
 ///|
-fn Path::parent(self : Path) -> Path {
-  match self {
+pub fn &ToPath::parent(self : &ToPath) -> &ToPath {
+  match self.to_path() {
     WindowsPath(w) => WindowsPath(w.parent())
     PosixPath(p) => PosixPath(p.parent())
   }
@@ -339,6 +339,14 @@ pub impl @uv.ToNtbs for Path with to_ntbs(self : Path) -> Bytes {
 ///|
 pub trait ToPath {
   to_path(Self) -> Path
+}
+
+///|
+pub impl Hash for &ToPath with hash_combine(self : &ToPath, hasher : Hasher) -> Unit {
+  match self.to_path() {
+    WindowsPath(w) => w.parts.hash_combine(hasher)
+    PosixPath(p) => p.parts.hash_combine(hasher)
+  }
 }
 
 ///|
@@ -562,4 +570,12 @@ fn Path::name(self : Path) -> String {
 ///|
 pub fn &ToPath::name(self : &ToPath) -> String {
   self.to_path().name()
+}
+
+///|
+pub fn &ToPath::parts(self : &ToPath) -> ArrayView[@string.View] {
+  match self.to_path() {
+    WindowsPath(w) => w.parts
+    PosixPath(p) => p.parts
+  }
 }
