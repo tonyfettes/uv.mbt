@@ -3,17 +3,18 @@ package "tonyfettes/uv/async"
 import(
   "moonbitlang/core/buffer"
   "moonbitlang/core/bytes"
-  "moonbitlang/core/json"
   "moonbitlang/core/string"
   "tonyfettes/encoding"
 )
 
 // Values
+fn args() -> Array[String]
+
 fn cwd() -> &ToPath!
 
-fn[Input : ToPath] path(Input) -> &ToPath
+fn[ToPath : ToPath] path(ToPath) -> &ToPath
 
-async fn read_text(&ToPath, encoding~ : @encoding.Encoding = ..) -> String!
+fn[ToPosixPath : ToPosixPath] posix_path(ToPosixPath) -> &ToPosixPath
 
 async fn[Exec : Executable] spawn(Exec, Array[&Show], cwd? : &ToPath, stdin~ : ProcessInput = .., stdout~ : ProcessOutput = .., stderr~ : ProcessOutput = ..) -> Process!
 
@@ -27,16 +28,24 @@ let stdout : File
 
 fn system() -> String!
 
+fn[ToWindowsPath : ToWindowsPath] windows_path(ToWindowsPath) -> &ToWindowsPath
+
 // Types and methods
+type BasicPath
+impl Eq for BasicPath
+impl ToJson for BasicPath
+
 type File
 impl Readable for File
 impl Writable for File
 
 type Iter[T]
+async fn[T, U] Iter::bind(Self[T], (T) -> U??Error) -> Self[U]
 async fn Iter::bytes(Self[@bytes.View]) -> Bytes!
 async fn[T] Iter::collect(Self[T]) -> Array[T]!
 async fn Iter::decode(Self[@bytes.View], encoding~ : @encoding.Encoding) -> Self[String]
 async fn[T] Iter::each(Self[T], (T) -> Unit!) -> Unit!
+async fn[T] Iter::filter(Self[T], (T) -> Bool?Error) -> Self[T]
 async fn Iter::text(Self[@bytes.View], encoding~ : @encoding.Encoding = ..) -> String!
 
 pub(all) enum OpenFlags {
@@ -44,13 +53,6 @@ pub(all) enum OpenFlags {
   WriteOnly
   ReadWrite
 }
-
-type Path
-fn Path::is_absolute(Self) -> Bool
-fn[Other : ToPath] Path::relative_to(Self, Other) -> Self!
-impl Eq for Path
-impl @tonyfettes/uv.ToNtbs for Path
-impl ToPath for Path
 
 type Pipe
 async fn Pipe::close(Self) -> Unit
@@ -92,44 +94,65 @@ type Stat
 fn Stat::is_dir(Self) -> Bool
 fn Stat::is_file(Self) -> Bool
 
-pub type! SystemError {
-  Exists
-  IsDirectory
-}
-
-type Task[T]
-fn[T] Task::new(() -> T!) -> Self[T]
-async fn[T] Task::start(Self[T]) -> T!
-
 async fn ToPath::access(&Self, read~ : Bool = .., write~ : Bool = .., execute~ : Bool = ..) -> Unit!
-async fn[Target : ToPath] ToPath::copy_to(&Self, Target, recursive~ : Bool = .., overwrite~ : Bool = ..) -> Unit!
+fn ToPath::anchor(&Self) -> @string.StringView
+async fn[Target : ToPath] ToPath::copy_to(&Self, Target, recursive~ : Bool = .., overwrite~ : Bool = .., loc~ : SourceLoc = _) -> Unit!
+fn ToPath::drive(&Self) -> @string.StringView
 async fn ToPath::exists(&Self) -> Bool!
 async fn ToPath::is_dir(&Self) -> Bool!
 async fn ToPath::is_file(&Self) -> Bool!
 async fn ToPath::iter(&Self) -> Iter[&Self]!
-async fn ToPath::mkdir(&Self, mode~ : Int = ..) -> Unit!
+async fn ToPath::mkdir(&Self, mode~ : Int = .., loc~ : SourceLoc = _) -> Unit!
 async fn[Target : ToPath] ToPath::move_to(&Self, Target) -> Unit!
-fn ToPath::name(&Self) -> String
-async fn ToPath::read(&Self) -> Iter[@bytes.View]!
-async fn ToPath::read_bytes(&Self) -> Bytes!
-async fn ToPath::read_text(&Self, encoding~ : @encoding.Encoding = ..) -> String!
-fn[Other : ToPath] ToPath::relative_to(&Self, Other) -> &Self!
-async fn ToPath::remove(&Self, recursive~ : Bool = ..) -> Unit!
+fn[ToPath : ToPath] ToPath::new(ToPath) -> &Self
+fn ToPath::parent(&Self) -> &Self?
+fn ToPath::parts(&Self) -> ArrayView[@string.StringView]
+fn ToPath::relative_to(&Self, &Self) -> &Self
+async fn ToPath::remove(&Self, recursive~ : Bool = .., loc~ : SourceLoc = _) -> Unit!
 async fn ToPath::resolve(&Self) -> &Self!
-async fn ToPath::rmdir(&Self) -> Unit!
+async fn ToPath::rmdir(&Self, loc~ : SourceLoc = _) -> Unit!
+fn ToPath::root(&Self) -> @string.StringView
 async fn ToPath::stat(&Self) -> Stat!
+fn ToPath::to_posix_path(&Self) -> &ToPosixPath
+fn ToPath::to_windows_path(&Self) -> &ToWindowsPath
 async fn ToPath::unlink(&Self) -> Unit!
-async fn ToPath::walk(&Self) -> Iter[&Self]!
-async fn ToPath::write(&Self, Iter[@bytes.View]) -> Unit!
-async fn ToPath::write_bytes(&Self, @bytes.View) -> Unit!
-async fn ToPath::write_text(&Self, @string.StringView, encoding~ : @encoding.Encoding = ..) -> Unit!
+async fn ToPath::walk(&Self, loc~ : SourceLoc = _) -> Iter[&Self]!
+impl Compare for &ToPath
 impl Div for &ToPath
 impl Eq for &ToPath
 impl Show for &ToPath
 impl ToJson for &ToPath
-impl @json.FromJson for &ToPath
+
+fn ToPosixPath::anchor(&Self) -> @string.StringView
+fn ToPosixPath::drive(&Self) -> @string.StringView
+fn[ToPosixPath : ToPosixPath] ToPosixPath::new(ToPosixPath) -> &Self
+fn ToPosixPath::parent(&Self) -> &Self?
+fn ToPosixPath::parts(&Self) -> ArrayView[@string.StringView]
+fn ToPosixPath::relative_to(&Self, &Self) -> &Self
+fn ToPosixPath::root(&Self) -> @string.StringView
+fn ToPosixPath::to_windows_path(&Self) -> &ToWindowsPath
+impl Div for &ToPosixPath
+impl Show for &ToPosixPath
+impl ToJson for &ToPosixPath
+
+fn ToWindowsPath::anchor(&Self) -> @string.StringView
+fn ToWindowsPath::drive(&Self) -> @string.StringView
+fn[ToWindowsPath : ToWindowsPath] ToWindowsPath::new(ToWindowsPath) -> &Self
+fn ToWindowsPath::parent(&Self) -> &Self?
+fn ToWindowsPath::parts(&Self) -> ArrayView[@string.StringView]
+fn ToWindowsPath::relative_to(&Self, &Self) -> &Self
+fn ToWindowsPath::root(&Self) -> @string.StringView
+fn ToWindowsPath::to_posix_path(&Self) -> &ToPosixPath
+impl Div for &ToWindowsPath
+impl Show for &ToWindowsPath
+impl ToJson for &ToWindowsPath
 
 // Type aliases
+pub typealias Path = &ToPath
+
+pub typealias PosixPath = &ToPosixPath
+
+pub typealias WindowsPath = &ToWindowsPath
 
 // Traits
 trait Executable
@@ -143,13 +166,25 @@ pub trait Readable {
 }
 impl Readable for Bytes
 impl Readable for @bytes.View
+impl Readable for &ToPath
 
-pub trait ToPath {
-  to_path(Self) -> Path
-}
+trait ToPath
 impl ToPath for String
 impl[T : ToPath] ToPath for Array[T]
+impl[T : ToPath] ToPath for ArrayView[T]
 impl ToPath for @string.StringView
+impl ToPath for &ToPosixPath
+impl ToPath for &ToWindowsPath
+
+trait ToPosixPath
+impl ToPosixPath for String
+impl ToPosixPath for @string.StringView
+impl ToPosixPath for &ToPath
+
+trait ToWindowsPath
+impl ToWindowsPath for String
+impl ToWindowsPath for @string.StringView
+impl ToWindowsPath for &ToPath
 
 pub trait Writable {
   async write(Self, Iter[@bytes.View]) -> Unit!
@@ -157,4 +192,5 @@ pub trait Writable {
   async write_bytes(Self, @bytes.View) -> Unit!
 }
 impl Writable for @buffer.T
+impl Writable for &ToPath
 

@@ -90,7 +90,7 @@ pub impl Readable for &ToPath with read(self : &ToPath) -> Iter[@bytes.View]! {
     ) {
       try
         uv.fs_open!(
-          self.to_path(),
+          self.to_path().to_string(),
           @uv.OpenFlags::read(),
           0o644,
           fn(_, file) {
@@ -121,7 +121,7 @@ pub impl Writable for &ToPath with write(
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
       uv.fs_open!(
-        self.to_path(),
+        self.to_path().to_string(),
         @uv.OpenFlags::write(create=true, truncate=true),
         0o644,
         fn(_, file) {
@@ -151,10 +151,10 @@ pub async fn &ToPath::iter(self : &ToPath) -> Iter[&ToPath]! {
   ) {
     try
       uv.fs_scandir!(
-        self.to_path(),
+        self.to_path().to_string(),
         0,
         fn(req) {
-          fn(yield_) {
+          let iter : Iter[&ToPath] = fn(yield_) {
             try {
               while true {
                 let dirent = @uv.fs_scandir_next!(req)
@@ -165,7 +165,7 @@ pub async fn &ToPath::iter(self : &ToPath) -> Iter[&ToPath]! {
               @uv.Errno(EOF) => ()
             }
           }
-          |> resolve()
+          resolve(iter)
         },
         fn(_, e) { reject(e) },
       ) catch {
@@ -175,36 +175,47 @@ pub async fn &ToPath::iter(self : &ToPath) -> Iter[&ToPath]! {
 }
 
 ///|
-pub async fn &ToPath::walk(self : &ToPath) -> Iter[&ToPath]! {
+pub async fn &ToPath::walk(
+  self : &ToPath,
+  loc~ : SourceLoc = _
+) -> Iter[&ToPath]! {
   let uv = uv!()
   fn(yield_) {
-    async_suspend_with_error!(fn(resolve, reject) {
-      try
-        uv.fs_scandir!(
-          self.to_path(),
-          0,
-          fn(req) {
-            async_run(fn() {
-              try {
-                while true {
-                  let dirent = @uv.fs_scandir_next!(req)
-                  let type_ = dirent.type_()
-                  let name = dirent.name()
-                  yield_!(self / name)
-                  if type_ is Dir {
-                    ((self / name).walk!()._)!(fn(path) { yield_!(path) })
+    backtrace(loc~, fn() {
+      async_suspend_with_error!(fn(resolve, reject) {
+        try
+          uv.fs_scandir!(
+            self.to_path().to_string(),
+            0,
+            fn(req) {
+              async_run(fn() {
+                try {
+                  while true {
+                    let dirent = @uv.fs_scandir_next!(req)
+                    let type_ = dirent.type_()
+                    let name = dirent.name()
+                    yield_!(self / name)
+                    if type_ is Dir {
+                      ((self / name).walk!()._)!(fn(path) { yield_!(path) })
+                    }
+                  }
+                } catch {
+                  @uv.Errno(EOF) => resolve(())
+                  e => {
+                    println("Error in walk (fs_scandir_next): \{e}")
+                    reject(e)
                   }
                 }
-              } catch {
-                @uv.Errno(EOF) => resolve(())
-                e => reject(e)
-              }
-            })
-          },
-          fn(_, e) { reject(e) },
-        ) catch {
-        e => reject(e)
-      }
+              })
+            },
+            fn(_, e) { reject(e) },
+          ) catch {
+          e => {
+            println("Error in walk: \{e}")
+            reject(e)
+          }
+        }
+      })
     })
   }
 }
@@ -217,12 +228,11 @@ pub async fn &ToPath::stat(self : &ToPath) -> Stat! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject) {
     try
-      uv.fs_stat!(self.to_path(), fn(_, stat) { resolve(Stat(stat)) }, fn(
-        _,
-        e
-      ) {
-        reject(e)
-      }) catch {
+      uv.fs_stat!(
+        self.to_path().to_string(),
+        fn(_, stat) { resolve(Stat(stat)) },
+        fn(_, e) { reject(e) },
+      ) catch {
       e => reject(e)
     }
   })
@@ -253,9 +263,16 @@ pub async fn &ToPath::is_file(self : &ToPath) -> Bool! {
 ///|
 pub async fn &ToPath::resolve(self : &ToPath) -> &ToPath! {
   let uv = uv!()
+  let self = self.to_path()
+  if self.flavor != flavor.val {
+    raise SystemError::not_supported(self)
+  }
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
-      uv.fs_realpath!(self.to_path(), fn(_, p) { resolve(p) }, fn(_, e) {
+      uv.fs_realpath!(self.to_path().to_string(), fn(_, p) { resolve(p) }, fn(
+        _,
+        e
+      ) {
         reject(e)
       }) catch {
       e => reject(e)
@@ -264,12 +281,13 @@ pub async fn &ToPath::resolve(self : &ToPath) -> &ToPath! {
 }
 
 ///|
-enum ErrorInfo {
+priv enum ErrorInfo {
   Exists(&ToPath)
   IsDirectory(&ToPath)
   NotEmpty(&ToPath)
   NotFound(&ToPath)
-}
+  NotSupported(&ToPath)
+} derive(ToJson(repr(ext_tagged)))
 
 ///|
 impl Show for ErrorInfo with output(self : ErrorInfo, logger : &Logger) -> Unit {
@@ -278,40 +296,55 @@ impl Show for ErrorInfo with output(self : ErrorInfo, logger : &Logger) -> Unit 
     IsDirectory(path) => logger.write_string("IsDirectory: \{path.to_string()}")
     NotEmpty(path) => logger.write_string("NotEmpty: \{path.to_string()}")
     NotFound(path) => logger.write_string("NotFound: \{path.to_string()}")
+    NotSupported(path) =>
+      logger.write_string("NotSupported: \{path.to_string()} is not supported")
   }
 }
 
 ///|
 impl Show for SystemError with output(self : SystemError, logger : &Logger) -> Unit {
-  let uv = try? uv()
   let SystemError((value, trace)) = self
   logger.write_string("Trace:\n")
+  let uv = try? uv()
+  let cwd = try? @uv.cwd()
+  guard uv is Ok(uv) && cwd is Ok(cwd) else {
+    for i = trace.length() - 1; i >= 0; i = i - 1 {
+      let loc = trace[i].to_string()
+      logger.write_string("  \{loc}\n")
+    }
+    logger.write_string(value.to_string())
+  }
+  fn write_file_content!(file : Path, start_row : @string.View) {
+    let start_row = @strconv.parse_int(start_row.to_string())
+    let content = StringBuilder::new()
+    let decoder = @encoding.decoder(UTF8)
+    let buffer = Bytes::make(1024, 0)
+    let file = uv.fs_open_sync(file.to_string(), @uv.OpenFlags::read(), 0o644)
+    for nread = uv.fs_read_sync(file, [buffer[:]])
+        nread > 0
+        nread = uv.fs_read_sync(file, [buffer[:]]) {
+      decoder.decode_to(buffer[:nread], content, stream=true)
+    }
+    let content = content.to_string()
+    let lines = content.split("\n").collect()
+    logger.write_string("  \{lines[start_row - 1]}\n")
+  }
+
   for i = trace.length() - 1; i >= 0; i = i - 1 {
     let loc = trace[i].to_string()
-    logger.write_string("  \{loc}\n")
-    guard uv is Ok(uv) else { continue }
     guard loc.to_string().split(":").collect()
-      is [.. file_parts, start_row, _, _] else {
+      is [.. file_parts, start_row, start_column_end_row, end_column] else {
+      logger.write_string("  \{loc}\n")
       continue
     }
-    let file = file_parts.map(_.to_string()).join("/")
-    try {
-      let start_row = @strconv.parse_int(start_row.to_string())
-      let content = StringBuilder::new()
-      let decoder = @encoding.decoder(UTF8)
-      let buffer = Bytes::make(1024, 0)
-      let file = uv.fs_open_sync(file.to_string(), @uv.OpenFlags::read(), 0o644)
-      for nread = uv.fs_read_sync(file, [buffer[:]])
-          nread > 0
-          nread = uv.fs_read_sync(file, [buffer[:]]) {
-        decoder.decode_to(buffer[:nread], content, stream=true)
-      }
-      let content = content.to_string()
-      let lines = content.split("\n").collect()
-      logger.write_string("  \{lines[start_row - 1]}\n")
-    } catch {
+    let file = Path::new(file_parts)
+    let file = file.relative_to(cwd)
+    logger.write_string(
+      "  \{file.to_string()}:\{start_row}:\{start_column_end_row}:\{end_column}\n",
+    )
+    try write_file_content(file, start_row) catch {
       e => {
-        println("  (error processing source location: \{e})")
+        logger.write_string("  (error processing source location: \{e})")
         continue
       }
     }
@@ -320,11 +353,34 @@ impl Show for SystemError with output(self : SystemError, logger : &Logger) -> U
 }
 
 ///|
-pub type! SystemError (ErrorInfo, Array[SourceLoc])
+impl ToJson for SystemError with to_json(self : SystemError) -> Json {
+  let SystemError((error, trace)) = self
+  { "error": error, "trace": trace.map(fn(loc) { loc.to_string() }) }
+}
 
 ///|
-fn SystemError::exists(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
-  SystemError((Exists(path), [loc]))
+priv type! SystemError (ErrorInfo, Array[SourceLoc])
+
+///|
+fn SystemError::new(
+  value : ErrorInfo,
+  trace~ : Array[SourceLoc] = [],
+  loc~ : SourceLoc = _
+) -> SystemError {
+  SystemError((value, [loc, ..trace]))
+}
+
+///|
+fn SystemError::exists(
+  path : &ToPath,
+  loc~ : SourceLoc = _,
+  caller? : SourceLoc
+) -> SystemError {
+  let locs = [loc]
+  if caller is Some(caller) {
+    locs.push(caller)
+  }
+  SystemError((Exists(path), locs))
 }
 
 ///|
@@ -346,13 +402,21 @@ fn SystemError::not_found(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
 }
 
 ///|
-fn SystemError::rethrow(
-  self : SystemError,
+fn SystemError::not_supported(
+  self : &ToPath,
   loc~ : SourceLoc = _
-) -> Unit!SystemError {
-  let SystemError((_, trace)) = self
-  trace.push(loc)
-  raise self
+) -> SystemError {
+  SystemError((NotSupported(self), [loc]))
+}
+
+///|
+async fn[T] backtrace(loc~ : SourceLoc, f : async () -> T!Error) -> T!Error {
+  try f() catch! {
+    SystemError((_, trace)) as system_error => {
+      trace.push(loc)
+      raise system_error
+    }
+  }
 }
 
 ///|
@@ -363,7 +427,7 @@ pub async fn[Target : ToPath] &ToPath::copy_to(
   overwrite~ : Bool = false,
   loc~ : SourceLoc = _
 ) -> Unit! {
-  try {
+  backtrace(loc~, fn() {
     let uv = uv!()
     let target : &ToPath = target.to_path()
     if self.is_dir() {
@@ -384,8 +448,8 @@ pub async fn[Target : ToPath] &ToPath::copy_to(
       async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
         try
           uv.fs_copyfile!(
-            self.to_path(),
-            target.to_path(),
+            self.to_path().to_string(),
+            target.to_path().to_string(),
             @uv.CopyFileFlags::new(allow_exists=overwrite),
             fn(_) { resolve(()) },
             fn(_, e) { reject(e) },
@@ -394,9 +458,7 @@ pub async fn[Target : ToPath] &ToPath::copy_to(
         }
       })
     }
-  } catch! {
-    SystemError(_) as system_error => system_error.rethrow(loc~)
-  }
+  })
 }
 
 ///|
@@ -407,12 +469,12 @@ pub async fn[Target : ToPath] &ToPath::move_to(
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
-      uv.fs_rename!(self.to_path(), target.to_path(), fn(_) { resolve(()) }, fn(
-        _,
-        e
-      ) {
-        reject(e)
-      }) catch {
+      uv.fs_rename!(
+        self.to_path().to_string(),
+        target.to_path().to_string(),
+        fn(_) { resolve(()) },
+        fn(_, e) { reject(e) },
+      ) catch {
       e => reject(e)
     }
   })
@@ -423,7 +485,10 @@ pub async fn &ToPath::unlink(self : &ToPath) -> Unit! {
   let uv = uv!()
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
-      uv.fs_unlink!(self.to_path(), fn(_) { resolve(()) }, fn(_, e) {
+      uv.fs_unlink!(self.to_path().to_string(), fn(_) { resolve(()) }, fn(
+        _,
+        e
+      ) {
         reject(e)
       }) catch {
       e => reject(e)
@@ -437,7 +502,10 @@ pub async fn &ToPath::rmdir(self : &ToPath, loc~ : SourceLoc = _) -> Unit! {
   try
     async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
       try
-        uv.fs_rmdir!(self.to_path(), fn(_) { resolve(()) }, fn(_, e) {
+        uv.fs_rmdir!(self.to_path().to_string(), fn(_) { resolve(()) }, fn(
+          _,
+          e
+        ) {
           reject(e)
         }) catch {
         e => reject(e)
@@ -449,19 +517,33 @@ pub async fn &ToPath::rmdir(self : &ToPath, loc~ : SourceLoc = _) -> Unit! {
 }
 
 ///|
-pub async fn &ToPath::mkdir(self : &ToPath, mode~ : Int = 0o777) -> Unit! {
+pub async fn &ToPath::mkdir(
+  self : &ToPath,
+  mode~ : Int = 0o777,
+  loc~ : SourceLoc = _
+) -> Unit! {
   let uv = uv!()
-  try
+  backtrace(loc~, fn() {
     async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
       try
-        uv.fs_mkdir(self.to_path(), mode, fn(_) { resolve(()) }, fn(_, e) {
-          reject(e)
+        uv.fs_mkdir(self.to_path().to_string(), mode, fn(_) { resolve(()) }, fn(
+          _,
+          e
+        ) {
+          if e is @uv.Errno(EEXIST) {
+            reject(SystemError::exists(self))
+          } else {
+            reject(e)
+          }
         }) catch {
-        e => reject(e)
+        @uv.Errno(EEXIST) => reject(SystemError::exists(self))
+        e => {
+          println("Error in mkdir: \{e}")
+          reject(e)
+        }
       }
-    }) catch! {
-    @uv.Errno(EEXIST) => raise SystemError::exists(self)
-  }
+    })
+  })
 }
 
 ///|
@@ -475,7 +557,7 @@ pub async fn &ToPath::access(
   async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
     try
       uv.fs_access!(
-        self.to_path(),
+        self.to_path().to_string(),
         @uv.AccessFlags::new(read~, write~, execute~),
         fn(_) { resolve(()) },
         fn(_, e) { reject(e) },
@@ -501,7 +583,7 @@ pub async fn &ToPath::remove(
   recursive~ : Bool = false,
   loc~ : SourceLoc = _
 ) -> Unit! {
-  try {
+  backtrace(loc~, fn() {
     if self.is_dir() {
       let entries = self.iter!().collect()
       if not(entries.is_empty()) {
@@ -518,7 +600,5 @@ pub async fn &ToPath::remove(
     } else {
       self.unlink()
     }
-  } catch! {
-    SystemError(_) as system_error => system_error.rethrow(loc~)
-  }
+  })
 }

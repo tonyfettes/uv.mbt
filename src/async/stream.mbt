@@ -9,6 +9,29 @@ pub async fn[T] Iter::collect(self : Iter[T]) -> Array[T]! {
 }
 
 ///|
+pub async fn[T] Iter::filter(
+  self : Iter[T],
+  f : async (T) -> Bool?Error
+) -> Iter[T] {
+  fn(yield_) { (self._)!(fn(item) { if f(item) { yield_!(item) } }) }
+}
+
+///|
+pub async fn[T, U] Iter::bind(
+  self : Iter[T],
+  f : async (T) -> U??Error
+) -> Iter[U] {
+  fn(yield_) {
+    (self._)!(fn(item) {
+      let result = f(item)
+      if result is Some(value) {
+        yield_!(value)
+      }
+    })
+  }
+}
+
+///|
 pub async fn Iter::text(
   self : Iter[@bytes.View],
   encoding~ : @encoding.Encoding = UTF8

@@ -53,7 +53,7 @@ pub fn[T] start(f : async () -> T!) -> T! {
 
 ///|
 pub fn cwd() -> &ToPath! {
-  path(@uv.cwd())
+  Path::new(@uv.cwd())
 }
 
 ///|
