@@ -105,6 +105,7 @@ async fn ToPath::is_file(&Self) -> Bool!
 async fn ToPath::iter(&Self) -> Iter[&Self]!
 async fn ToPath::mkdir(&Self, mode~ : Int = .., loc~ : SourceLoc = _) -> Unit!
 async fn[Target : ToPath] ToPath::move_to(&Self, Target) -> Unit!
+fn ToPath::name(&Self) -> @string.StringView?
 fn[ToPath : ToPath] ToPath::new(ToPath) -> &Self
 fn ToPath::parent(&Self) -> &Self?
 fn ToPath::parts(&Self) -> ArrayView[@string.StringView]
@@ -114,6 +115,7 @@ async fn ToPath::resolve(&Self) -> &Self!
 async fn ToPath::rmdir(&Self, loc~ : SourceLoc = _) -> Unit!
 fn ToPath::root(&Self) -> @string.StringView
 async fn ToPath::stat(&Self) -> Stat!
+fn ToPath::suffix(&Self) -> @string.StringView?
 fn ToPath::to_posix_path(&Self) -> &ToPosixPath
 fn ToPath::to_windows_path(&Self) -> &ToWindowsPath
 async fn ToPath::unlink(&Self) -> Unit!
