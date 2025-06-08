@@ -33,6 +33,7 @@ fn[ToWindowsPath : ToWindowsPath] windows_path(ToWindowsPath) -> &ToWindowsPath
 // Types and methods
 type BasicPath
 impl Eq for BasicPath
+impl Hash for BasicPath
 impl ToJson for BasicPath
 
 type File
@@ -120,6 +121,7 @@ async fn ToPath::walk(&Self, loc~ : SourceLoc = _) -> Iter[&Self]!
 impl Compare for &ToPath
 impl Div for &ToPath
 impl Eq for &ToPath
+impl Hash for &ToPath
 impl Show for &ToPath
 impl ToJson for &ToPath
 

@@ -2,7 +2,7 @@
 priv enum Flavor {
   Windows
   Posix
-} derive(Show, Eq, Compare)
+} derive(Show, Eq, Compare, Hash)
 
 ///|
 impl ToJson for Flavor with to_json(self : Flavor) -> Json {
@@ -19,7 +19,7 @@ struct BasicPath {
   root : @string.View
   anchor : @string.View
   parts : ArrayView[@string.View]
-} derive(ToJson, Eq)
+} derive(ToJson, Eq, Hash)
 
 ///|
 impl Compare for BasicPath with compare(self : BasicPath, other : BasicPath) -> Int {
@@ -1165,6 +1165,11 @@ pub impl Eq for &ToPath with op_equal(self : &ToPath, other : &ToPath) -> Bool {
 ///|
 pub impl Compare for &ToPath with compare(self : &ToPath, other : &ToPath) -> Int {
   self.to_path().compare(other.to_path())
+}
+
+///|
+pub impl Hash for &ToPath with hash_combine(self : &ToPath, hasher : Hasher) -> Unit {
+  self.to_path().hash_combine(hasher)
 }
 
 ///|
