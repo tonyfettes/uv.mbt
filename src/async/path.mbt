@@ -903,6 +903,11 @@ impl Div for BasicPath with op_div(self : BasicPath, other : BasicPath) -> Basic
 }
 
 ///|
+fn BasicPath::join(self : BasicPath, other : BasicPath) -> BasicPath {
+  self / other
+}
+
+///|
 test "BasicPath::op_div" {
   let a = BasicPath::{
     flavor: Posix,
@@ -1000,6 +1005,21 @@ test "BasicPath::op_div" {
   }
   let c = a / b
   inspect(c, content="C:\\System32")
+}
+
+///|
+fn BasicPath::suffix(self : BasicPath) -> @string.View? {
+  guard self.name() is Some(name) else { None }
+  name.split(".").last()
+}
+
+///|
+fn BasicPath::name(self : BasicPath) -> @string.View? {
+  let parts_length = self.parts.length()
+  if self.anchor != "" && self.parts.length() == 1 {
+    return None
+  }
+  Some(self.parts[parts_length - 1])
 }
 
 ///|
@@ -1153,6 +1173,14 @@ pub impl Div for &ToPath with op_div(self : &ToPath, other : &ToPath) -> &ToPath
 }
 
 ///|
+pub fn[ToPath : ToPath] &ToPath::join(
+  self : &ToPath,
+  other : ToPath
+) -> &ToPath {
+  self / other
+}
+
+///|
 pub impl ToJson for &ToPath with to_json(self : &ToPath) -> Json {
   return self.to_string().to_json()
 }
@@ -1175,6 +1203,16 @@ pub impl Hash for &ToPath with hash_combine(self : &ToPath, hasher : Hasher) -> 
 ///|
 pub fn &ToPath::relative_to(self : &ToPath, other : &ToPath) -> &ToPath {
   self.to_path().relative_to(other.to_path())
+}
+
+///|
+pub fn &ToPath::suffix(self : &ToPath) -> @string.View? {
+  self.to_path().suffix()
+}
+
+///|
+pub fn &ToPath::name(self : &ToPath) -> @string.View? {
+  self.to_path().name()
 }
 
 ///|

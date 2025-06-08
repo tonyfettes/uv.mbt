@@ -6,7 +6,7 @@ test "relative_to" {
     let relative_path = async_pipe_mbt.relative_to(fs_mbt)
     inspect(relative_path, content="../async/pipe.mbt")
     inspect(
-      (fs_mbt / relative_path).resolve(),
+      fs_mbt.join(relative_path).resolve(),
       content="/Users/haoxiang/Workspace/moonbit/feihaoxiang/uv.mbt/src/async/pipe.mbt",
     )
     inspect(
