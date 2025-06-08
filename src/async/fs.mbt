@@ -201,19 +201,13 @@ pub async fn &ToPath::walk(
                   }
                 } catch {
                   @uv.Errno(EOF) => resolve(())
-                  e => {
-                    println("Error in walk (fs_scandir_next): \{e}")
-                    reject(e)
-                  }
+                  e => reject(e)
                 }
               })
             },
             fn(_, e) { reject(e) },
           ) catch {
-          e => {
-            println("Error in walk: \{e}")
-            reject(e)
-          }
+          e => reject(e)
         }
       })
     })
@@ -538,7 +532,6 @@ pub async fn &ToPath::mkdir(
         }) catch {
         @uv.Errno(EEXIST) => reject(SystemError::exists(self))
         e => {
-          println("Error in mkdir: \{e}")
           reject(e)
         }
       }
