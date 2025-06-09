@@ -356,7 +356,7 @@ pub async fn &ToPath::is_file(self : &ToPath) -> Bool! {
 }
 
 ///|
-pub async fn Path::resolve(self : Path, loc~ : SourceLoc = _) -> &ToPath! {
+pub async fn Path::resolve(self : Path, loc~ : SourceLoc = _) -> Path! {
   backtrace(loc~, fn() {
     let uv = uv!()
     let self = self.to_path()
@@ -371,7 +371,10 @@ pub async fn Path::resolve(self : Path, loc~ : SourceLoc = _) -> &ToPath! {
         }
       }
       try
-        uv.fs_realpath!(self.to_string(), fn(_, p) { resolve(p) }, fn(_, e) {
+        uv.fs_realpath!(self.to_string(), fn(_, p) { resolve(Path::new(p)) }, fn(
+          _,
+          e
+        ) {
           reject(e)
         }) catch {
         e => reject(e)
