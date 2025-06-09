@@ -13,16 +13,52 @@ impl ToJson for Flavor with to_json(self : Flavor) -> Json {
 }
 
 ///|
-struct BasicPath {
+struct Path {
   flavor : Flavor
   drive : @string.View
   root : @string.View
   anchor : @string.View
   parts : ArrayView[@string.View]
-} derive(ToJson, Eq, Hash)
+} derive(Eq, Hash)
 
 ///|
-impl Compare for BasicPath with compare(self : BasicPath, other : BasicPath) -> Int {
+fn Path::to_json(self : Path) -> Json {
+  {
+    "flavor": self.flavor.to_json(),
+    "drive": self.drive.to_json(),
+    "root": self.root.to_json(),
+    "anchor": self.anchor.to_json(),
+    "parts": self.parts,
+  }
+}
+
+///|
+pub impl ToJson for Path with to_json(self : Path) -> Json {
+  self.to_string().to_json()
+}
+
+///|
+pub fn Path::parts(self : Path) -> ArrayView[@string.View] {
+  self.parts
+}
+
+///|
+pub fn Path::drive(self : Path) -> @string.View {
+  self.drive
+}
+
+///|
+pub fn Path::root(self : Path) -> @string.View {
+  self.root
+}
+
+///|
+pub fn Path::anchor(self : Path) -> @string.View {
+  self.anchor
+}
+
+///|
+pub impl Compare for Path with compare(self : Path, other : Path) -> Int {
   if self.flavor != other.flavor {
     return self.flavor.compare(other.flavor)
   }
@@ -30,17 +66,11 @@ impl Compare for BasicPath with compare(self : BasicPath, other : BasicPath) -> 
 }
 
 ///|
-fn BasicPath::parse_posix_path(path : @string.View) -> BasicPath {
+fn Path::parse_posix_path(path : @string.View) -> Path {
   let root = StringBuilder::new()
-  fn make_path(path : Array[@string.View]) -> BasicPath {
+  fn make_path(path : Array[@string.View]) -> Path {
     let root = root.to_string()
-    return BasicPath::{
-      flavor: Posix,
-      drive: "",
-      root,
-      anchor: root,
-      parts: path,
-    }
+    return Path::{ flavor: Posix, drive: "", root, anchor: root, parts: path }
   }
 
   let parts : Array[@string.View] = []
@@ -103,42 +133,42 @@ fn BasicPath::parse_posix_path(path : @string.View) -> BasicPath {
 
 ///|
 test "posix_path/root" {
-  @json.inspect(BasicPath::parse_posix_path("/"), content={
+  @json.inspect(Path::parse_posix_path("/").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "/",
     "anchor": "/",
     "parts": ["/"],
   })
-  @json.inspect(BasicPath::parse_posix_path("//"), content={
+  @json.inspect(Path::parse_posix_path("//").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "//",
     "anchor": "//",
     "parts": ["//"],
   })
-  @json.inspect(BasicPath::parse_posix_path("///"), content={
+  @json.inspect(Path::parse_posix_path("///").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "/",
     "anchor": "/",
     "parts": ["/"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("//usr//bin//"), content={
+  @json.inspect!(Path::parse_posix_path("//usr//bin//").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "//",
     "anchor": "//",
     "parts": ["//", "usr", "bin"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("////usr"), content={
+  @json.inspect!(Path::parse_posix_path("////usr").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "/",
     "anchor": "/",
     "parts": ["/", "usr"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("/usr/bin"), content={
+  @json.inspect!(Path::parse_posix_path("/usr/bin").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "/",
@@ -149,28 +179,28 @@ test "posix_path/root" {
 
 ///|
 test "posix_path" {
-  @json.inspect!(BasicPath::parse_posix_path("usr/bin"), content={
+  @json.inspect!(Path::parse_posix_path("usr/bin").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["usr", "bin"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("usr/bin/"), content={
+  @json.inspect!(Path::parse_posix_path("usr/bin/").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["usr", "bin"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("usr//bin"), content={
+  @json.inspect!(Path::parse_posix_path("usr//bin").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["usr", "bin"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("C:\\Windows"), content={
+  @json.inspect!(Path::parse_posix_path("C:\\Windows").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
@@ -181,7 +211,7 @@ test "posix_path" {
 
 ///|
 test "posix_path/empty" {
-  @json.inspect!(BasicPath::parse_posix_path(""), content={
+  @json.inspect!(Path::parse_posix_path("").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
@@ -192,21 +222,21 @@ test "posix_path/empty" {
 
 ///|
 test "posix_path/collapse_slashes" {
-  @json.inspect!(BasicPath::parse_posix_path("usr/////bin"), content={
+  @json.inspect!(Path::parse_posix_path("usr/////bin").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["usr", "bin"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("usr//bin//"), content={
+  @json.inspect!(Path::parse_posix_path("usr//bin//").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["usr", "bin"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("usr///bin//"), content={
+  @json.inspect!(Path::parse_posix_path("usr///bin//").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
@@ -217,28 +247,28 @@ test "posix_path/collapse_slashes" {
 
 ///|
 test "posix_path/collapse_dots" {
-  @json.inspect!(BasicPath::parse_posix_path("usr/./bin"), content={
+  @json.inspect!(Path::parse_posix_path("usr/./bin").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["usr", "bin"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("usr/../bin"), content={
+  @json.inspect!(Path::parse_posix_path("usr/../bin").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["usr", "..", "bin"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("usr/.././bin"), content={
+  @json.inspect!(Path::parse_posix_path("usr/.././bin").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["usr", "..", "bin"],
   })
-  @json.inspect!(BasicPath::parse_posix_path("usr/./../bin"), content={
+  @json.inspect!(Path::parse_posix_path("usr/./../bin").to_json(), content={
     "flavor": "posix",
     "drive": "",
     "root": "",
@@ -248,25 +278,19 @@ test "posix_path/collapse_dots" {
 }
 
 ///|
-fn BasicPath::parse_windows_path(path : @string.View) -> BasicPath {
+fn Path::parse_windows_path(path : @string.View) -> Path {
   enum UncState {
     Zero
     One
   }
   let drive = StringBuilder::new()
   let root = StringBuilder::new()
-  fn make_path(parts : Array[@string.View]) -> BasicPath {
+  fn make_path(parts : Array[@string.View]) -> Path {
     let drive_string = drive.to_string()
     let root = root.to_string()
     drive.write_string(root)
     let anchor = drive.to_string()
-    return BasicPath::{
-      flavor: Windows,
-      drive: drive_string,
-      root,
-      anchor,
-      parts,
-    }
+    return Path::{ flavor: Windows, drive: drive_string, root, anchor, parts }
   }
 
   let parts : Array[@string.View] = []
@@ -386,7 +410,7 @@ fn BasicPath::parse_windows_path(path : @string.View) -> BasicPath {
 
 ///|
 test "parse_windows_path/empty" {
-  @json.inspect(BasicPath::parse_windows_path(""), content={
+  @json.inspect(Path::parse_windows_path(""), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
@@ -397,77 +421,77 @@ test "parse_windows_path/empty" {
 
 ///|
 test "parse_windows_path/drive" {
-  @json.inspect!(BasicPath::parse_windows_path("C:"), content={
+  @json.inspect!(Path::parse_windows_path("C:"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "",
     "anchor": "C:",
     "parts": ["C:"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("ABC:"), content={
+  @json.inspect!(Path::parse_windows_path("ABC:"), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["ABC:"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("C:\\"), content={
+  @json.inspect!(Path::parse_windows_path("C:\\"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "\\",
     "anchor": "C:\\",
     "parts": ["C:\\"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("C:\\\\"), content={
+  @json.inspect!(Path::parse_windows_path("C:\\\\"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "\\",
     "anchor": "C:\\",
     "parts": ["C:\\"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("C:\\Windows"), content={
+  @json.inspect!(Path::parse_windows_path("C:\\Windows"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "\\",
     "anchor": "C:\\",
     "parts": ["C:\\", "Windows"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("C:\\\\Windows"), content={
+  @json.inspect!(Path::parse_windows_path("C:\\\\Windows"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "\\",
     "anchor": "C:\\",
     "parts": ["C:\\", "Windows"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("C:/Windows"), content={
+  @json.inspect!(Path::parse_windows_path("C:/Windows"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "\\",
     "anchor": "C:\\",
     "parts": ["C:\\", "Windows"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("C:/Windows/"), content={
+  @json.inspect!(Path::parse_windows_path("C:/Windows/"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "\\",
     "anchor": "C:\\",
     "parts": ["C:\\", "Windows"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("C:\\Windows\\"), content={
+  @json.inspect!(Path::parse_windows_path("C:\\Windows\\"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "\\",
     "anchor": "C:\\",
     "parts": ["C:\\", "Windows"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("C:Windows"), content={
+  @json.inspect!(Path::parse_windows_path("C:Windows"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "",
     "anchor": "C:",
     "parts": ["C:", "Windows"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("C:Windows/"), content={
+  @json.inspect!(Path::parse_windows_path("C:Windows/"), content={
     "flavor": "windows",
     "drive": "C:",
     "root": "",
@@ -478,35 +502,35 @@ test "parse_windows_path/drive" {
 
 ///|
 test "parse_windows_path/root" {
-  @json.inspect(BasicPath::parse_windows_path("/"), content={
+  @json.inspect(Path::parse_windows_path("/"), content={
     "flavor": "windows",
     "drive": "",
     "root": "\\",
     "anchor": "\\",
     "parts": ["\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("\\"), content={
+  @json.inspect(Path::parse_windows_path("\\"), content={
     "flavor": "windows",
     "drive": "",
     "root": "\\",
     "anchor": "\\",
     "parts": ["\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("Windows"), content={
+  @json.inspect(Path::parse_windows_path("Windows"), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["Windows"],
   })
-  @json.inspect(BasicPath::parse_windows_path("/Windows"), content={
+  @json.inspect(Path::parse_windows_path("/Windows"), content={
     "flavor": "windows",
     "drive": "",
     "root": "\\",
     "anchor": "\\",
     "parts": ["\\", "Windows"],
   })
-  @json.inspect(BasicPath::parse_windows_path("\\Windows"), content={
+  @json.inspect(Path::parse_windows_path("\\Windows"), content={
     "flavor": "windows",
     "drive": "",
     "root": "\\",
@@ -517,98 +541,98 @@ test "parse_windows_path/root" {
 
 ///|
 test "parse_windows_path/unc" {
-  @json.inspect(BasicPath::parse_windows_path("//"), content={
+  @json.inspect(Path::parse_windows_path("//"), content={
     "flavor": "windows",
     "drive": "\\\\",
     "root": "",
     "anchor": "\\\\",
     "parts": ["\\\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("\\\\"), content={
+  @json.inspect(Path::parse_windows_path("\\\\"), content={
     "flavor": "windows",
     "drive": "\\\\",
     "root": "",
     "anchor": "\\\\",
     "parts": ["\\\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("/\\"), content={
+  @json.inspect(Path::parse_windows_path("/\\"), content={
     "flavor": "windows",
     "drive": "\\\\",
     "root": "",
     "anchor": "\\\\",
     "parts": ["\\\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("///"), content={
+  @json.inspect(Path::parse_windows_path("///"), content={
     "flavor": "windows",
     "drive": "\\\\\\",
     "root": "",
     "anchor": "\\\\\\",
     "parts": ["\\\\\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("////"), content={
+  @json.inspect(Path::parse_windows_path("////"), content={
     "flavor": "windows",
     "drive": "\\\\\\",
     "root": "\\",
     "anchor": "\\\\\\\\",
     "parts": ["\\\\\\\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("/////"), content={
+  @json.inspect(Path::parse_windows_path("/////"), content={
     "flavor": "windows",
     "drive": "\\\\\\",
     "root": "\\",
     "anchor": "\\\\\\\\",
     "parts": ["\\\\\\\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("//unc"), content={
+  @json.inspect(Path::parse_windows_path("//unc"), content={
     "flavor": "windows",
     "drive": "\\\\unc",
     "root": "",
     "anchor": "\\\\unc",
     "parts": ["\\\\unc"],
   })
-  @json.inspect(BasicPath::parse_windows_path("//unc/"), content={
+  @json.inspect(Path::parse_windows_path("//unc/"), content={
     "flavor": "windows",
     "drive": "\\\\unc\\",
     "root": "",
     "anchor": "\\\\unc\\",
     "parts": ["\\\\unc\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("//unc/share"), content={
+  @json.inspect(Path::parse_windows_path("//unc/share"), content={
     "flavor": "windows",
     "drive": "\\\\unc\\share",
     "root": "\\",
     "anchor": "\\\\unc\\share\\",
     "parts": ["\\\\unc\\share\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("//unc/share/"), content={
+  @json.inspect(Path::parse_windows_path("//unc/share/"), content={
     "flavor": "windows",
     "drive": "\\\\unc\\share",
     "root": "\\",
     "anchor": "\\\\unc\\share\\",
     "parts": ["\\\\unc\\share\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("\\\\unc\\share"), content={
+  @json.inspect(Path::parse_windows_path("\\\\unc\\share"), content={
     "flavor": "windows",
     "drive": "\\\\unc\\share",
     "root": "\\",
     "anchor": "\\\\unc\\share\\",
     "parts": ["\\\\unc\\share\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("\\\\unc\\share\\"), content={
+  @json.inspect(Path::parse_windows_path("\\\\unc\\share\\"), content={
     "flavor": "windows",
     "drive": "\\\\unc\\share",
     "root": "\\",
     "anchor": "\\\\unc\\share\\",
     "parts": ["\\\\unc\\share\\"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("//unc/share/a/b"), content={
+  @json.inspect!(Path::parse_windows_path("//unc/share/a/b"), content={
     "flavor": "windows",
     "drive": "\\\\unc\\share",
     "root": "\\",
     "anchor": "\\\\unc\\share\\",
     "parts": ["\\\\unc\\share\\", "a", "b"],
   })
-  @json.inspect!(BasicPath::parse_windows_path("\\\\unc\\share\\a\\b"), content={
+  @json.inspect!(Path::parse_windows_path("\\\\unc\\share\\a\\b"), content={
     "flavor": "windows",
     "drive": "\\\\unc\\share",
     "root": "\\",
@@ -619,21 +643,21 @@ test "parse_windows_path/unc" {
 
 ///|
 test "parse_windows_path/collapse_slashes" {
-  @json.inspect(BasicPath::parse_windows_path("a//b///c////d"), content={
+  @json.inspect(Path::parse_windows_path("a//b///c////d"), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["a", "b", "c", "d"],
   })
-  @json.inspect(BasicPath::parse_windows_path("a\\\\b\\\\\\c\\\\\\\\d"), content={
+  @json.inspect(Path::parse_windows_path("a\\\\b\\\\\\c\\\\\\\\d"), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["a", "b", "c", "d"],
   })
-  @json.inspect(BasicPath::parse_windows_path("a/b/c/d"), content={
+  @json.inspect(Path::parse_windows_path("a/b/c/d"), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
@@ -644,56 +668,56 @@ test "parse_windows_path/collapse_slashes" {
 
 ///|
 test "parse_windows_path/collapse_dots" {
-  @json.inspect(BasicPath::parse_windows_path("./a/b/c"), content={
+  @json.inspect(Path::parse_windows_path("./a/b/c"), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["a", "b", "c"],
   })
-  @json.inspect(BasicPath::parse_windows_path("a/b/c/."), content={
+  @json.inspect(Path::parse_windows_path("a/b/c/."), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["a", "b", "c"],
   })
-  @json.inspect(BasicPath::parse_windows_path("a/b/c/./d"), content={
+  @json.inspect(Path::parse_windows_path("a/b/c/./d"), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["a", "b", "c", "d"],
   })
-  @json.inspect(BasicPath::parse_windows_path("a/b/c/././d"), content={
+  @json.inspect(Path::parse_windows_path("a/b/c/././d"), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["a", "b", "c", "d"],
   })
-  @json.inspect(BasicPath::parse_windows_path("a/b/c/./././d"), content={
+  @json.inspect(Path::parse_windows_path("a/b/c/./././d"), content={
     "flavor": "windows",
     "drive": "",
     "root": "",
     "anchor": "",
     "parts": ["a", "b", "c", "d"],
   })
-  @json.inspect(BasicPath::parse_windows_path("//./"), content={
+  @json.inspect(Path::parse_windows_path("//./"), content={
     "flavor": "windows",
     "drive": "\\\\.\\",
     "root": "",
     "anchor": "\\\\.\\",
     "parts": ["\\\\.\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("//./."), content={
+  @json.inspect(Path::parse_windows_path("//./."), content={
     "flavor": "windows",
     "drive": "\\\\.\\.",
     "root": "\\",
     "anchor": "\\\\.\\.\\",
     "parts": ["\\\\.\\.\\"],
   })
-  @json.inspect(BasicPath::parse_windows_path("//./././a/b/c"), content={
+  @json.inspect(Path::parse_windows_path("//./././a/b/c"), content={
     "flavor": "windows",
     "drive": "\\\\.\\.",
     "root": "\\",
@@ -703,7 +727,7 @@ test "parse_windows_path/collapse_dots" {
 }
 
 ///|
-impl Show for BasicPath with output(self : BasicPath, logger : &Logger) -> Unit {
+pub impl Show for Path with output(self : Path, logger : &Logger) -> Unit {
   let separator = if self.flavor is Windows { '\\' } else { '/' }
   fn write_stringview(s : @string.View) {
     for c in s {
@@ -732,19 +756,19 @@ impl Show for BasicPath with output(self : BasicPath, logger : &Logger) -> Unit 
 }
 
 ///|
-fn BasicPath::parent(self : BasicPath) -> BasicPath? {
+pub fn Path::parent(self : Path) -> Path? {
   if self.parts.length() == 0 {
     return None
   }
   if (self.drive != "" || self.root != "") && self.parts.length() == 1 {
     return None
   }
-  Some(BasicPath::{ ..self, parts: self.parts[:self.parts.length() - 1] })
+  Some(Path::{ ..self, parts: self.parts[:self.parts.length() - 1] })
 }
 
 ///|
 test "BasicPath::parent" {
-  let path = BasicPath::{
+  let path = Path::{
     flavor: Posix,
     drive: "",
     root: "",
@@ -760,7 +784,7 @@ test "BasicPath::parent" {
       "parts": ["usr"],
     },
   ])
-  let path = BasicPath::{
+  let path = Path::{
     flavor: Posix,
     drive: "",
     root: "/",
@@ -776,7 +800,7 @@ test "BasicPath::parent" {
       "parts": ["/", "usr"],
     },
   ])
-  let path = BasicPath::{
+  let path = Path::{
     flavor: Windows,
     drive: "C:",
     root: "\\",
@@ -792,7 +816,7 @@ test "BasicPath::parent" {
       "parts": ["C:\\", "Windows"],
     },
   ])
-  let path = BasicPath::{
+  let path = Path::{
     flavor: Windows,
     drive: "C:",
     root: "\\",
@@ -800,7 +824,7 @@ test "BasicPath::parent" {
     parts: ["C:\\"],
   }
   @json.inspect(path.parent() is None, content=true)
-  let path = BasicPath::{
+  let path = Path::{
     flavor: Windows,
     drive: "",
     root: "",
@@ -811,7 +835,7 @@ test "BasicPath::parent" {
 }
 
 ///|
-fn BasicPath::to_posix_path(self : BasicPath) -> BasicPath {
+pub fn Path::to_posix_path(self : Path) -> Path {
   fn convert_to_slash(source : @string.View, target : StringBuilder) -> Unit {
     loop source {
       ['\\', .. chars] => {
@@ -832,24 +856,25 @@ fn BasicPath::to_posix_path(self : BasicPath) -> BasicPath {
     let anchor = StringBuilder::new()
     convert_to_slash(self.drive, anchor)
     convert_to_slash(self.root, anchor)
-    let anchor = BasicPath::parse_posix_path(anchor.to_string())
-    BasicPath::{ ..anchor, parts: [..anchor.parts, ..self.parts[1:]] }
+    let anchor = Path::parse_posix_path(anchor.to_string())
+    Path::{ ..anchor, parts: [..anchor.parts, ..self.parts[1:]] }
   } else {
-    BasicPath::{ ..self, flavor: Posix }
+    Path::{ ..self, flavor: Posix }
   }
 }
 
 ///|
-fn BasicPath::to_windows_path(self : BasicPath) -> BasicPath {
+pub fn Path::to_windows_path(self : Path) -> Path {
   if self.flavor is Windows {
     self
   } else {
-    BasicPath::parse_windows_path(self.to_string())
+    Path::parse_windows_path(self.to_string())
   }
 }
 
 ///|
-fn BasicPath::relative_to(self : BasicPath, other : BasicPath) -> BasicPath {
+pub fn[ToPath : ToPath] Path::relative_to(self : Path, other : ToPath) -> Path {
+  let other = other.to_path()
   let self_parts_length = self.parts.length()
   let other_parts_length = other.parts.length()
   let minimum_parts_length = @math.minimum(
@@ -870,11 +895,11 @@ fn BasicPath::relative_to(self : BasicPath, other : BasicPath) -> BasicPath {
   for i in common_parts_length..<self_parts_length {
     parts.push(self.parts[i])
   }
-  BasicPath::{ ..self, drive: "", root: "", anchor: "", parts }
+  Path::{ ..self, drive: "", root: "", anchor: "", parts }
 }
 
 ///|
-impl Div for BasicPath with op_div(self : BasicPath, other : BasicPath) -> BasicPath {
+impl Div for Path with op_div(self : Path, other : Path) -> Path {
   match self.flavor {
     Windows => {
       let other = other.to_windows_path()
@@ -882,7 +907,7 @@ impl Div for BasicPath with op_div(self : BasicPath, other : BasicPath) -> Basic
         return other
       }
       if other.root != "" {
-        return BasicPath::{
+        return Path::{
           flavor: Windows,
           drive: self.drive,
           root: other.root,
@@ -890,33 +915,33 @@ impl Div for BasicPath with op_div(self : BasicPath, other : BasicPath) -> Basic
           parts: other.parts,
         }
       }
-      BasicPath::{ ..self, parts: [..self.parts, ..other.parts] }
+      Path::{ ..self, parts: [..self.parts, ..other.parts] }
     }
     Posix => {
       let other = other.to_posix_path()
       if other.root != "" {
         return other
       }
-      BasicPath::{ ..self, parts: [..self.parts, ..other.parts] }
+      Path::{ ..self, parts: [..self.parts, ..other.parts] }
     }
   }
 }
 
 ///|
-fn BasicPath::join(self : BasicPath, other : BasicPath) -> BasicPath {
-  self / other
+pub fn[ToPath : ToPath] Path::join(self : Path, other : ToPath) -> Path {
+  self / other.to_path()
 }
 
 ///|
 test "BasicPath::op_div" {
-  let a = BasicPath::{
+  let a = Path::{
     flavor: Posix,
     drive: "",
     root: "",
     anchor: "",
     parts: ["usr", "bin"],
   }
-  let b = BasicPath::{
+  let b = Path::{
     flavor: Posix,
     drive: "",
     root: "",
@@ -925,14 +950,14 @@ test "BasicPath::op_div" {
   }
   let c = a / b
   inspect(c, content="usr/bin/local/bin")
-  let a = BasicPath::{
+  let a = Path::{
     flavor: Posix,
     drive: "",
     root: "/",
     anchor: "/",
     parts: ["/", "usr", "bin"],
   }
-  let b = BasicPath::{
+  let b = Path::{
     flavor: Posix,
     drive: "",
     root: "",
@@ -941,14 +966,14 @@ test "BasicPath::op_div" {
   }
   let c = a / b
   inspect(c, content="/usr/bin/local/bin")
-  let a = BasicPath::{
+  let a = Path::{
     flavor: Posix,
     drive: "",
     root: "",
     anchor: "",
     parts: ["usr", "bin"],
   }
-  let b = BasicPath::{
+  let b = Path::{
     flavor: Posix,
     drive: "",
     root: "/",
@@ -957,14 +982,14 @@ test "BasicPath::op_div" {
   }
   let c = a / b
   inspect(c, content="/local/bin")
-  let a = BasicPath::{
+  let a = Path::{
     flavor: Windows,
     drive: "C:",
     root: "\\",
     anchor: "C:\\",
     parts: ["C:\\", "Windows"],
   }
-  let b = BasicPath::{
+  let b = Path::{
     flavor: Windows,
     drive: "",
     root: "",
@@ -973,14 +998,14 @@ test "BasicPath::op_div" {
   }
   let c = a / b
   inspect(c, content="C:\\Windows\\System32")
-  let a = BasicPath::{
+  let a = Path::{
     flavor: Windows,
     drive: "C:",
     root: "\\",
     anchor: "C:\\",
     parts: ["C:\\", "Windows"],
   }
-  let b = BasicPath::{
+  let b = Path::{
     flavor: Windows,
     drive: "D:",
     root: "\\",
@@ -989,14 +1014,14 @@ test "BasicPath::op_div" {
   }
   let c = a / b
   inspect(c, content="D:\\System32")
-  let a = BasicPath::{
+  let a = Path::{
     flavor: Windows,
     drive: "C:",
     root: "\\",
     anchor: "C:\\",
     parts: ["C:\\", "Windows"],
   }
-  let b = BasicPath::{
+  let b = Path::{
     flavor: Windows,
     drive: "",
     root: "\\",
@@ -1008,13 +1033,13 @@ test "BasicPath::op_div" {
 }
 
 ///|
-fn BasicPath::suffix(self : BasicPath) -> @string.View? {
+fn Path::suffix(self : Path) -> @string.View? {
   guard self.name() is Some(name) else { None }
   name.split(".").last()
 }
 
 ///|
-fn BasicPath::name(self : BasicPath) -> @string.View? {
+fn Path::name(self : Path) -> @string.View? {
   let parts_length = self.parts.length()
   if self.anchor != "" && self.parts.length() == 1 {
     return None
@@ -1038,14 +1063,11 @@ fn init {
 
 ///|
 trait ToPath {
-  to_path(Self) -> BasicPath
+  to_path(Self) -> Path
 }
 
 ///|
-pub typealias Path = &ToPath
-
-///|
-pub impl ToPath for @string.View with to_path(self : @string.View) -> BasicPath {
+pub impl ToPath for @string.View with to_path(self : @string.View) -> Path {
   match flavor.val {
     Windows => ToWindowsPath::to_windows_path(self)
     Posix => ToPosixPath::to_posix_path(self)
@@ -1053,33 +1075,33 @@ pub impl ToPath for @string.View with to_path(self : @string.View) -> BasicPath 
 }
 
 ///|
-pub impl ToPath for String with to_path(self : String) -> BasicPath {
+pub impl ToPath for String with to_path(self : String) -> Path {
   ToPath::to_path(self.view())
 }
 
 ///|
-impl ToPath for BasicPath with to_path(self : BasicPath) -> BasicPath {
+pub impl ToPath for Path with to_path(self : Path) -> Path {
   self
 }
 
 ///|
-pub impl ToPath for &ToWindowsPath with to_path(self : &ToWindowsPath) -> BasicPath {
+pub impl ToPath for &ToWindowsPath with to_path(self : &ToWindowsPath) -> Path {
   self.to_windows_path()
 }
 
 ///|
-pub impl ToPath for &ToPosixPath with to_path(self : &ToPosixPath) -> BasicPath {
+pub impl ToPath for &ToPosixPath with to_path(self : &ToPosixPath) -> Path {
   self.to_posix_path()
 }
 
 ///|
-pub impl[T : ToPath] ToPath for Array[T] with to_path(self : Array[T]) -> BasicPath {
+pub impl[T : ToPath] ToPath for Array[T] with to_path(self : Array[T]) -> Path {
   ToPath::to_path(self[:])
 }
 
 ///|
-pub impl[T : ToPath] ToPath for ArrayView[T] with to_path(self : ArrayView[T]) -> BasicPath {
-  let mut path = BasicPath::{
+pub impl[T : ToPath] ToPath for ArrayView[T] with to_path(self : ArrayView[T]) -> Path {
+  let mut path = Path::{
     flavor: flavor.val,
     drive: "",
     root: "",
@@ -1090,6 +1112,11 @@ pub impl[T : ToPath] ToPath for ArrayView[T] with to_path(self : ArrayView[T]) -
     path = path / item.to_path()
   }
   path
+}
+
+///|
+pub fn[ToPath : ToPath] Path::new(path : ToPath) -> Path {
+  path.to_path()
 }
 
 ///|
@@ -1217,29 +1244,29 @@ pub fn &ToPath::name(self : &ToPath) -> @string.View? {
 
 ///|
 trait ToPosixPath {
-  to_posix_path(Self) -> BasicPath
+  to_posix_path(Self) -> Path
 }
 
 ///|
 pub typealias PosixPath = &ToPosixPath
 
 ///|
-pub impl ToPosixPath for @string.View with to_posix_path(self : @string.View) -> BasicPath {
-  BasicPath::parse_posix_path(self)
+pub impl ToPosixPath for @string.View with to_posix_path(self : @string.View) -> Path {
+  Path::parse_posix_path(self)
 }
 
 ///|
-pub impl ToPosixPath for String with to_posix_path(self : String) -> BasicPath {
-  BasicPath::parse_posix_path(self.view())
+pub impl ToPosixPath for String with to_posix_path(self : String) -> Path {
+  Path::parse_posix_path(self.view())
 }
 
 ///|
-impl ToPosixPath for BasicPath with to_posix_path(self : BasicPath) -> BasicPath {
+impl ToPosixPath for Path with to_posix_path(self : Path) -> Path {
   self.to_posix_path()
 }
 
 ///|
-pub impl ToPosixPath for &ToPath with to_posix_path(self : &ToPath) -> BasicPath {
+pub impl ToPosixPath for &ToPath with to_posix_path(self : &ToPath) -> Path {
   self.to_path().to_posix_path()
 }
 
@@ -1321,12 +1348,12 @@ pub impl Div for &ToPosixPath with op_div(
   if other.root != "" {
     return other
   }
-  BasicPath::{ ..self, parts: [..self.parts, ..other.parts] }
+  Path::{ ..self, parts: [..self.parts, ..other.parts] }
 }
 
 ///|
 trait ToWindowsPath {
-  to_windows_path(Self) -> BasicPath
+  to_windows_path(Self) -> Path
 }
 
 ///|
@@ -1335,22 +1362,22 @@ pub typealias WindowsPath = &ToWindowsPath
 ///|
 pub impl ToWindowsPath for @string.View with to_windows_path(
   self : @string.View
-) -> BasicPath {
-  BasicPath::parse_windows_path(self)
+) -> Path {
+  Path::parse_windows_path(self)
 }
 
 ///|
-pub impl ToWindowsPath for String with to_windows_path(self : String) -> BasicPath {
-  BasicPath::parse_windows_path(self.view())
+pub impl ToWindowsPath for String with to_windows_path(self : String) -> Path {
+  Path::parse_windows_path(self.view())
 }
 
 ///|
-impl ToWindowsPath for BasicPath with to_windows_path(self : BasicPath) -> BasicPath {
+impl ToWindowsPath for Path with to_windows_path(self : Path) -> Path {
   self.to_windows_path()
 }
 
 ///|
-pub impl ToWindowsPath for &ToPath with to_windows_path(self : &ToPath) -> BasicPath {
+pub impl ToWindowsPath for &ToPath with to_windows_path(self : &ToPath) -> Path {
   self.to_path().to_windows_path()
 }
 
@@ -1425,7 +1452,7 @@ pub impl Div for &ToWindowsPath with op_div(
     return other
   }
   if other.root != "" {
-    return BasicPath::{
+    return Path::{
       flavor: Windows,
       drive: self.drive,
       root: other.root,
@@ -1433,7 +1460,7 @@ pub impl Div for &ToWindowsPath with op_div(
       parts: other.parts,
     }
   }
-  BasicPath::{ ..self, parts: [..self.parts, ..other.parts] }
+  Path::{ ..self, parts: [..self.parts, ..other.parts] }
 }
 
 ///|

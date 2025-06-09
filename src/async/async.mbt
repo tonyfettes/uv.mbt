@@ -23,9 +23,6 @@ fn uv() -> @uv.Loop!@uv.Errno {
 }
 
 ///|
-type File @uv.File
-
-///|
 pub fn[T] start(f : async () -> T!) -> T! {
   let uv = uv!()
   let mut value = None

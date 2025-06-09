@@ -109,26 +109,26 @@ test "walk" {
   @async.start(fn() {
     let fixtures = @async.Path::new(["test", "fixtures"])
     async fn cleanup() {
-      try (fixtures / "example").remove(recursive=true) catch {
+      try fixtures.join("example").remove(recursive=true) catch {
         _ => ()
       }
-      try (fixtures / "example_0.txt").unlink() catch {
+      try fixtures.join("example_0.txt").unlink() catch {
         _ => ()
       }
-      try (fixtures / "example" / "1.txt").unlink() catch {
+      try fixtures.join(["example", "1.txt"]).unlink() catch {
         _ => ()
       }
-      try (fixtures / "example" / "2.txt").unlink() catch {
+      try fixtures.join(["example", "2.txt"]).unlink() catch {
         _ => ()
       }
     }
 
     try {
-      (fixtures / "example").mkdir()
-      let src = fixtures / "example.txt"
-      src.copy_to(fixtures / "example_0.txt")
-      src.copy_to(fixtures / "example" / "1.txt")
-      src.copy_to(fixtures / "example" / "2.txt")
+      fixtures.join("example").mkdir()
+      let src = fixtures.join("example.txt")
+      src.copy_to(fixtures.join("example_0.txt"))
+      src.copy_to(fixtures.join("example").join("1.txt"))
+      src.copy_to(fixtures.join("example").join("2.txt"))
       let files = @async.Path::new(["test", "fixtures"]).walk!().collect()
       files.sort()
       @json.inspect(files, content=[
@@ -159,10 +159,9 @@ test "trace" {
             #|Trace:
             #|  src/async/fs_test.mbt:152:7-152:53
             #|        @async.Path::new(["test", "fixtures"]).mkdir()
-            #|  src/async/fs.mbt:528:20-528:45
+            #|  src/async/fs.mbt:622:20-622:45
             #|              reject(SystemError::exists(self))
             #|Exists: test/fixtures
-
           ,
         )
     }
