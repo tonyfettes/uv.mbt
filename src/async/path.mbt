@@ -178,6 +178,11 @@ test "posix_path/root" {
 }
 
 ///|
+pub fn[ToPosixPath : ToPosixPath] Path::posix(path : ToPosixPath) -> Path {
+  path.to_posix_path()
+}
+
+///|
 test "posix_path" {
   @json.inspect!(Path::parse_posix("usr/bin").to_json(), content={
     "flavor": "posix",
@@ -406,6 +411,13 @@ pub fn Path::parse_windows(path : @string.View) -> Path {
       break path~ make_path(parts)
     }
   }
+}
+
+///|
+pub fn[ToWindowsPath : ToWindowsPath] Path::windows(
+  path : ToWindowsPath
+) -> Path {
+  path.to_windows_path()
 }
 
 ///|
