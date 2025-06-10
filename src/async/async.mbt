@@ -17,30 +17,30 @@ fn uv() -> @uv.Loop!@uv.Errno {
   if uv_ref.val is Some(uv) {
     return uv
   }
-  let uv = @uv.Loop::new!()
+  let uv = @uv.Loop::new()
   uv_ref.val = Some(uv)
   return uv
 }
 
 ///|
 pub fn[T] start(f : async () -> T!) -> T! {
-  let uv = uv!()
+  let uv = uv()
   let mut value = None
   let mut error = None
   async_run(fn() {
     try {
       let _ = {
-        value = Some(f!())
+        value = Some(f())
       }
 
     } catch {
       e => error = Some(e)
     }
   })
-  uv.run!(Default)
+  uv.run(Default)
   uv_ref.val = None
   uv.stop()
-  uv.close!()
+  uv.close()
   if error is Some(error) {
     raise error
   }
@@ -86,7 +86,7 @@ fn[E : Error] Scope::launch(self : Scope[E], f : async () -> Unit!E) -> Unit {
   self.launched += 1
   async_run(fn() {
     try {
-      f!()
+      f()
       self.resolve()
     } catch {
       e => self.reject(e)
@@ -97,7 +97,7 @@ fn[E : Error] Scope::launch(self : Scope[E], f : async () -> Unit!E) -> Unit {
 ///|
 async fn[T, E : Error] Scope::new(f : async (Scope[E]) -> T!E) -> T!E {
   let mut value = None
-  async_suspend_with_error!(fn(resolve, reject : (E) -> Unit) {
+  async_suspend_with_error(fn(resolve, reject : (E) -> Unit) {
     let scope = Scope::{ launched: 0, canceled: false, resolve, reject }
     scope.launch(fn() { value = Some(f(scope)) })
   })

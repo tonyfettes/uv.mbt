@@ -1,15 +1,25 @@
 ///|
+test "read" {
+  @async.start(fn() {
+    let moon_mod_json = @async.Path::new("moon.mod.json").read().text()
+      |> @json.parse()
+    assert_true(moon_mod_json is Object({ "name": "tonyfettes/uv", .. }))
+  })
+}
+
+///|
 test "open" {
-  @async.start!(fn() {
-    let moon_mod_json = @async.Path::new("moon.mod.json").read().text!()
-      |> @json.parse!()
-    assert_true!(moon_mod_json is Object({ "name": "tonyfettes/uv", .. }))
+  @async.start(fn() {
+    let file = @async.Path::new("moon.mod.json").open()
+    let content = file.read_text(encoding=UTF8) |> @json.parse()
+    assert_true(content is Object({ "name": "tonyfettes/uv", .. }))
+    file.close()
   })
 }
 
 ///|
 test "write" {
-  @async.start!(fn() {
+  @async.start(fn() {
     let path = @async.Path::new(["test", "fixtures", "example_write.txt"])
     assert_false(path.exists())
     let content = "Hello, world!"
@@ -34,23 +44,29 @@ test "write/truncate" {
     let readme = @async.Path::new("README.md")
     let backup = readme.read_text(encoding=UTF8)
     readme.write_bytes("")
-    @json.inspect!(readme.read_text(encoding=UTF8), content="")
+    @json.inspect(readme.read_text(encoding=UTF8), content="")
     readme.write_text(backup, encoding=UTF8)
   })
 }
 
 ///|
 test "scandir" {
-  @async.start!(fn() {
-    @json.inspect!(@async.Path::new(["test", "fixtures"]).iter!().collect(), content=[
-      "test/fixtures/example.txt",
+  @async.start(fn() {
+    @json.inspect(@async.Path::new(["test", "fixtures"]).iter().collect(), content=[
+      {
+        "flavor": "posix",
+        "drive": "",
+        "root": "",
+        "anchor": "",
+        "parts": ["test", "fixtures", "example.txt"],
+      },
     ])
   })
 }
 
 ///|
 test "copy_to/file" {
-  @async.start!(fn() {
+  @async.start(fn() {
     let src = @async.Path::new(["test", "fixtures", "example.txt"])
     assert_true(src.exists())
     let dst = @async.Path::new(["test", "fixtures", "example_copy.txt"])
@@ -109,18 +125,11 @@ test "walk" {
   @async.start(fn() {
     let fixtures = @async.Path::new(["test", "fixtures"])
     async fn cleanup() {
-      try fixtures.join("example").remove(recursive=true) catch {
-        _ => ()
-      }
-      try fixtures.join("example_0.txt").unlink() catch {
-        _ => ()
-      }
-      try fixtures.join(["example", "1.txt"]).unlink() catch {
-        _ => ()
-      }
-      try fixtures.join(["example", "2.txt"]).unlink() catch {
-        _ => ()
-      }
+      let _ = try? fixtures.join("example").remove(recursive=true)
+      let _ = try? fixtures.join("example_0.txt").unlink()
+      let _ = try? fixtures.join(["example", "1.txt"]).unlink()
+      let _ = try? fixtures.join(["example", "2.txt"]).unlink()
+
     }
 
     try {
@@ -129,11 +138,44 @@ test "walk" {
       src.copy_to(fixtures.join("example_0.txt"))
       src.copy_to(fixtures.join("example").join("1.txt"))
       src.copy_to(fixtures.join("example").join("2.txt"))
-      let files = @async.Path::new(["test", "fixtures"]).walk!().collect()
+      let files = @async.Path::new(["test", "fixtures"]).walk().collect()
       files.sort()
       @json.inspect(files, content=[
-        "test/fixtures/example", "test/fixtures/example.txt", "test/fixtures/example_0.txt",
-        "test/fixtures/example/1.txt", "test/fixtures/example/2.txt",
+        {
+          "flavor": "posix",
+          "drive": "",
+          "root": "",
+          "anchor": "",
+          "parts": ["test", "fixtures", "example"],
+        },
+        {
+          "flavor": "posix",
+          "drive": "",
+          "root": "",
+          "anchor": "",
+          "parts": ["test", "fixtures", "example.txt"],
+        },
+        {
+          "flavor": "posix",
+          "drive": "",
+          "root": "",
+          "anchor": "",
+          "parts": ["test", "fixtures", "example_0.txt"],
+        },
+        {
+          "flavor": "posix",
+          "drive": "",
+          "root": "",
+          "anchor": "",
+          "parts": ["test", "fixtures", "example", "1.txt"],
+        },
+        {
+          "flavor": "posix",
+          "drive": "",
+          "root": "",
+          "anchor": "",
+          "parts": ["test", "fixtures", "example", "2.txt"],
+        },
       ])
       cleanup()
     } catch {
@@ -157,12 +199,11 @@ test "trace" {
           error,
           content=
             #|Trace:
-            #|  src/async/fs_test.mbt:152:7-152:53
+            #|  src/async/fs_test.mbt:150:7-150:53
             #|        @async.Path::new(["test", "fixtures"]).mkdir()
-            #|  src/async/fs.mbt:665:20-665:45
+            #|  src/async/fs.mbt:700:20-700:45
             #|              reject(SystemError::exists(self))
             #|Exists: test/fixtures
-
           ,
         )
     }

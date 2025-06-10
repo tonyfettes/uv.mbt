@@ -93,8 +93,8 @@ pub fn Process::kill(self : Process, signum : Signum) -> Unit!Error {
 trait Executable {
   spawn(
     Self,
-    Array[&Show],
-    cwd~ : &ToPath?,
+    Array[@string.View],
+    cwd~ : Path?,
     stdin~ : ProcessInput,
     stdout~ : ProcessOutput,
     stderr~ : ProcessOutput,
@@ -104,8 +104,8 @@ trait Executable {
 ///|
 pub impl Executable for String with spawn(
   self : String,
-  args : Array[&Show],
-  cwd~ : &ToPath?,
+  args : Array[@string.View],
+  cwd~ : Path?,
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
@@ -146,24 +146,23 @@ pub impl Executable for String with spawn(
 ///|
 pub impl Executable for &ToPath with spawn(
   self : &ToPath,
-  args : Array[&Show],
-  cwd~ : &ToPath?,
+  args : Array[@string.View],
+  cwd~ : Path?,
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
 ) -> Process!Error {
-  self.to_string()
-  |> Executable::spawn(args, cwd~, stdin~, stdout~, stderr~)
+  self.to_string() |> Executable::spawn(args, cwd~, stdin~, stdout~, stderr~)
 }
 
 ///|
 pub async fn[Exec : Executable] spawn(
   exec : Exec,
-  args : Array[&Show],
+  args : Array[@string.View],
   cwd? : &ToPath,
   stdin~ : ProcessInput = Ignore,
   stdout~ : ProcessOutput = Ignore,
   stderr~ : ProcessOutput = Ignore
 ) -> Process! {
-  exec.spawn!(args, cwd~, stdin~, stdout~, stderr~)
+  exec.spawn!(args, cwd=cwd.map(_.to_path()), stdin~, stdout~, stderr~)
 }

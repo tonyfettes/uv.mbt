@@ -2,6 +2,18 @@
 type File @uv.File
 
 ///|
+pub async fn File::close(self : File, loc~ : SourceLoc = _) -> Unit! {
+  let uv = uv()
+  backtrace(loc~, fn() {
+    async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
+      try uv.fs_close(self._, fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
+        e => reject(e)
+      }
+    })
+  })
+}
+
+///|
 pub enum FileType {
   File
   Directory
@@ -11,13 +23,6 @@ pub enum FileType {
   BlockDevice
   CharacterDevice
   Unknown
-}
-
-///|
-pub(all) enum OpenFlags {
-  ReadOnly
-  WriteOnly
-  ReadWrite
 }
 
 ///|
@@ -31,7 +36,7 @@ pub impl Readable for File with read(self : File) {
   ) -> Unit {
     try {
       let bytes = Bytes::make(256, 0)
-      uv.fs_read!(
+      uv.fs_read(
         file,
         [bytes[:]],
         fn(_, count) {
@@ -56,8 +61,8 @@ pub impl Readable for File with read(self : File) {
   }
 
   fn(yield_) {
-    let uv = uv!()
-    async_suspend_with_error!(fn(resolve, reject) {
+    let uv = uv()
+    async_suspend_with_error(fn(resolve, reject) {
       read(uv, self._, yield_, resolve, reject)
     })
   }
@@ -77,7 +82,7 @@ pub impl Writable for File with write(self : File, bytes : Iter[@bytes.View]) {
       return
     }
     try
-      uv.fs_write!(
+      uv.fs_write(
         file,
         [bytes[:]],
         fn(_, count) { write(uv, file, bytes[count:], resolve, reject) },
@@ -87,20 +92,42 @@ pub impl Writable for File with write(self : File, bytes : Iter[@bytes.View]) {
     }
   }
 
-  let uv = uv!()
-  bytes.each!(fn(bytes) {
-    async_suspend_with_error!(fn(resolve, reject) {
+  let uv = uv()
+  bytes.each(fn(bytes) {
+    async_suspend_with_error(fn(resolve, reject) {
       write(uv, self._, bytes, resolve, reject)
     })
   })
 }
 
 ///|
+pub async fn Path::open(self : Path, loc~ : SourceLoc = _) -> File! {
+  let uv = uv()
+  backtrace(loc~, fn() {
+    try
+      async_suspend_with_error(fn(resolve, reject) {
+        try
+          uv.fs_open(
+            self.to_string(),
+            @uv.OpenFlags::read_only(),
+            0o644,
+            fn(_, file) { resolve(File::File(file)) },
+            fn(_, e) { reject(e) },
+          ) catch {
+          e => reject(e)
+        }
+      }) catch! {
+      @uv.Errno(ENOENT) => raise SystemError::not_found(self)
+    }
+  })
+}
+
+///|
 pub fn Path::read(self : Path, loc~ : SourceLoc = _) -> Iter[@bytes.View]! {
-  let uv = uv!()
+  let uv = uv()
   fn(yield_) {
     backtrace(loc~, fn() {
-      async_suspend_with_error!(fn(
+      async_suspend_with_error(fn(
         resolve : (Unit) -> Unit,
         reject : (Error) -> Unit
       ) {
@@ -112,16 +139,18 @@ pub fn Path::read(self : Path, loc~ : SourceLoc = _) -> Iter[@bytes.View]! {
           }
         }
         try
-          uv.fs_open!(
+          uv.fs_open(
             self.to_string(),
-            @uv.OpenFlags::read(),
+            @uv.OpenFlags::read_only(),
             0o644,
             fn(_, file) {
               let file = File::File(file)
               async_run(fn() {
                 try {
-                  file.read!().each!(fn(bytes) { yield_!(bytes) })
-                  uv.fs_close!(file._, fn(_) { resolve(()) })
+                  file.read().each(fn(bytes) { yield_(bytes) })
+                  uv.fs_close(file._, fn(_) { resolve(()) }, fn(_, e) {
+                    reject(e)
+                  })
                 } catch {
                   e => reject(e)
                 }
@@ -161,8 +190,8 @@ pub async fn Path::write(
   loc~ : SourceLoc = _
 ) -> Unit! {
   backtrace(loc~, fn() {
-    let uv = uv!()
-    async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    let uv = uv()
+    async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
       let reject = fn(error : Error) -> Unit {
         match error {
           @uv.Errno(ENOENT) => reject(SystemError::not_found(self, loc~))
@@ -171,16 +200,18 @@ pub async fn Path::write(
         }
       }
       try
-        uv.fs_open!(
+        uv.fs_open(
           self.to_string(),
-          @uv.OpenFlags::write(create=true, truncate=true),
+          @uv.OpenFlags::write_only(create=true, truncate=true),
           0o644,
           fn(_, file) {
             let file = File::File(file)
             async_run(fn() {
               try {
-                file.write!(bytes)
-                uv.fs_close!(file._, fn(_) { resolve(()) })
+                file.write(bytes)
+                uv.fs_close(file._, fn(_) { resolve(()) }, fn(_, e) {
+                  reject(e)
+                })
               } catch {
                 e => reject(e)
               }
@@ -209,25 +240,26 @@ pub impl Writable for Path with write(self : Path, bytes : Iter[@bytes.View]) ->
 
 ///|
 pub async fn Path::iter(self : Path) -> Iter[Path]! {
-  let uv = uv!()
-  async_suspend_with_error!(fn(
+  let uv = uv()
+  async_suspend_with_error(fn(
     resolve : (Iter[Path]) -> Unit,
     reject : (Error) -> Unit
   ) {
     try
-      uv.fs_scandir!(
+      uv.fs_scandir(
         self.to_string(),
         0,
         fn(req) {
           let iter : Iter[Path] = fn(yield_) {
             try {
               while true {
-                let dirent = @uv.fs_scandir_next!(req)
+                let dirent = @uv.fs_scandir_next(req)
                 let name = dirent.name()
                 yield_(self / ToPath::to_path(name))
               }
-            } catch! {
+            } catch {
               @uv.Errno(EOF) => ()
+              e => raise e
             }
           }
           resolve(iter)
@@ -246,25 +278,25 @@ pub fn &ToPath::iter(self : &ToPath) -> Iter[&ToPath] {
 
 ///|
 pub async fn Path::walk(self : Path, loc~ : SourceLoc = _) -> Iter[Path]! {
-  let uv = uv!()
+  let uv = uv()
   fn(yield_) {
     backtrace(loc~, fn() {
-      async_suspend_with_error!(fn(resolve, reject) {
+      async_suspend_with_error(fn(resolve, reject) {
         try
-          uv.fs_scandir!(
+          uv.fs_scandir(
             self.to_string(),
             0,
             fn(req) {
               async_run(fn() {
                 try {
                   while true {
-                    let dirent = @uv.fs_scandir_next!(req)
+                    let dirent = @uv.fs_scandir_next(req)
                     let type_ = dirent.type_()
                     let name = dirent.name()
                     let path = self / ToPath::to_path(name)
-                    yield_!(path)
+                    yield_(path)
                     if type_ is Dir {
-                      (path.walk!()._)!(fn(path) { yield_!(path) })
+                      (path.walk()._)(fn(path) { yield_(path) })
                     }
                   }
                 } catch {
@@ -290,7 +322,7 @@ pub async fn Path::stat(self : Path, loc~ : SourceLoc = _) -> Stat! {
   backtrace(loc~, fn() {
     try {
       let uv = uv()
-      async_suspend_with_error!(fn(resolve, reject) {
+      async_suspend_with_error(fn(resolve, reject) {
         try
           uv.fs_stat(self.to_string(), fn(_, stat) { resolve(Stat(stat)) }, fn(
             _,
@@ -301,8 +333,9 @@ pub async fn Path::stat(self : Path, loc~ : SourceLoc = _) -> Stat! {
           e => reject(e)
         }
       })
-    } catch! {
+    } catch {
       @uv.Errno(ENOENT) => raise SystemError::not_found(self)
+      error => raise error
     }
   })
 }
@@ -358,12 +391,12 @@ pub async fn &ToPath::is_file(self : &ToPath) -> Bool! {
 ///|
 pub async fn Path::resolve(self : Path, loc~ : SourceLoc = _) -> Path! {
   backtrace(loc~, fn() {
-    let uv = uv!()
+    let uv = uv()
     let self = self.to_path()
     if self.flavor != flavor.val {
       raise SystemError::not_supported(self)
     }
-    async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
       let reject = fn(error : Error) -> Unit {
         match error {
           @uv.Errno(ENOENT) => reject(SystemError::not_found(self))
@@ -371,7 +404,7 @@ pub async fn Path::resolve(self : Path, loc~ : SourceLoc = _) -> Path! {
         }
       }
       try
-        uv.fs_realpath!(self.to_string(), fn(_, p) { resolve(Path::new(p)) }, fn(
+        uv.fs_realpath(self.to_string(), fn(_, p) { resolve(Path::new(p)) }, fn(
           _,
           e
         ) {
@@ -427,7 +460,11 @@ impl Show for SystemError with output(self : SystemError, logger : &Logger) -> U
     let content = StringBuilder::new()
     let decoder = @encoding.decoder(UTF8)
     let buffer = Bytes::make(1024, 0)
-    let file = uv.fs_open_sync(file.to_string(), @uv.OpenFlags::read(), 0o644)
+    let file = uv.fs_open_sync(
+      file.to_string(),
+      @uv.OpenFlags::read_only(),
+      0o644,
+    )
     for nread = uv.fs_read_sync(file, [buffer[:]])
         nread > 0
         nread = uv.fs_read_sync(file, [buffer[:]]) {
@@ -522,11 +559,12 @@ pub async fn[T] backtrace(
   loc~ : SourceLoc = _,
   f : async () -> T!Error
 ) -> T!Error {
-  try f() catch! {
+  try f() catch {
     SystemError((_, trace)) as system_error => {
       trace.push(loc)
       raise system_error
     }
+    error => raise error
   }
 }
 
@@ -539,7 +577,7 @@ pub async fn[Target : ToPath] Path::copy_to(
   loc~ : SourceLoc = _
 ) -> Unit! {
   backtrace(loc~, fn() {
-    let uv = uv!()
+    let uv = uv()
     let target : Path = target.to_path()
     if self.is_dir() {
       if not(recursive) {
@@ -553,12 +591,12 @@ pub async fn[Target : ToPath] Path::copy_to(
       .iter()
       .each(fn(entry) {
         let target_entry = target / entry.relative_to(self)
-        entry.copy_to!(target_entry, recursive~, overwrite~)
+        entry.copy_to(target_entry, recursive~, overwrite~)
       })
     } else {
-      async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+      async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
         try
-          uv.fs_copyfile!(
+          uv.fs_copyfile(
             self.to_string(),
             target.to_string(),
             @uv.CopyFileFlags::new(allow_exists=overwrite),
@@ -578,11 +616,11 @@ pub async fn[Target : ToPath] Path::move_to(
   target : Target,
   loc~ : SourceLoc = _
 ) -> Unit! {
-  let uv = uv!()
+  let uv = uv()
   backtrace(loc~, fn() {
-    async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
       try
-        uv.fs_rename!(
+        uv.fs_rename(
           self.to_string(),
           target.to_path().to_string(),
           fn(_) { resolve(()) },
@@ -607,16 +645,17 @@ pub async fn Path::unlink(self : Path, loc~ : SourceLoc = _) -> Unit! {
   let uv = uv()
   backtrace(loc~, fn() {
     try
-      async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+      async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
         try
-          uv.fs_unlink!(self.to_string(), fn(_) { resolve(()) }, fn(_, e) {
+          uv.fs_unlink(self.to_string(), fn(_) { resolve(()) }, fn(_, e) {
             reject(e)
           }) catch {
           e => reject(e)
         }
-      }) catch! {
+      }) catch {
       @uv.Errno(ENOENT) => raise SystemError::not_found(self)
       @uv.Errno(EISDIR) => raise SystemError::is_directory(self)
+      error => raise error
     }
   })
 }
@@ -638,9 +677,10 @@ pub async fn Path::rmdir(self : Path, loc~ : SourceLoc = _) -> Unit! {
           }) catch {
           e => reject(e)
         }
-      }) catch! {
+      }) catch {
       @uv.Errno(ENOTEMPTY) => raise SystemError::not_empty(self)
       @uv.Errno(ENOENT) => raise SystemError::not_found(self)
+      error => raise error
     }
   })
 }
@@ -689,9 +729,9 @@ pub async fn Path::access(
 ) -> Unit! {
   let uv = uv()
   backtrace(loc~, fn() {
-    async_suspend_with_error!(fn(resolve, reject : (Error) -> Unit) {
+    async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
       try
-        uv.fs_access!(
+        uv.fs_access(
           self.to_string(),
           @uv.AccessFlags::new(read~, write~, execute~),
           fn(_) { resolve(()) },
@@ -719,8 +759,9 @@ pub async fn Path::exists(self : Path, loc~ : SourceLoc = _) -> Bool! {
     try {
       self.access()
       true
-    } catch! {
+    } catch {
       @uv.Errno(ENOENT) => false
+      error => raise error
     }
   })
 }
