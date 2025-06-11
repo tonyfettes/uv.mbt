@@ -45,7 +45,7 @@ pub impl Readable for File with read(self : File) {
           } else {
             async_run(fn() {
               try {
-                yield_!(bytes[:count])
+                yield_(bytes[:count])
                 read(uv, file, yield_, resolve, reject)
               } catch {
                 e => reject(e)
