@@ -1,11 +1,11 @@
 ///|
 test "spawn: capture stdout and stderr" {
-  @async.start!(fn() {
-    let stdout = @async.Pipe::new!()
-    let process = @async.spawn!("moon", ["--help"], stdout=Pipe(stdout))
-    @json.inspect!(process.status!(), content=0)
-    inspect!(
-      stdout.read_text!(encoding=UTF8),
+  @async.start(fn() {
+    let stdout = @async.Pipe::new()
+    let process = @async.spawn("moon", ["--help"], stdout=Pipe(stdout))
+    @json.inspect(process.status(), content=0)
+    inspect(
+      stdout.read_text(encoding=UTF8),
       content=
         #|The build system and package manager for MoonBit.
         #|
@@ -57,20 +57,20 @@ test "spawn: capture stdout and stderr" {
 
 ///|
 test "spawn: send stdin" {
-  @async.start!(fn() {
+  @async.start(fn() {
     if @async.system() != "Windows" {
-      let stdin = @async.Pipe::new!()
-      let stdout = @async.Pipe::new!()
-      let process = @async.spawn!(
+      let stdin = @async.Pipe::new()
+      let stdout = @async.Pipe::new()
+      let process = @async.spawn(
         "cat",
         [],
         stdin=Pipe(stdin),
         stdout=Pipe(stdout),
       )
-      stdin.write_bytes!("hello\n")
-      stdin.close!()
-      @json.inspect!(process.status!(), content=0)
-      @json.inspect!(stdout.read_text!(encoding=UTF8), content="hello\n")
+      stdin.write_bytes("hello\n")
+      stdin.close()
+      @json.inspect(process.status(), content=0)
+      @json.inspect(stdout.read_text(encoding=UTF8), content="hello\n")
     }
   })
 }

@@ -199,11 +199,12 @@ test "trace" {
           error,
           content=
             #|Trace:
-            #|  src/async/fs_test.mbt:150:7-150:53
+            #|  src/async/fs_test.mbt:194:7-194:53
             #|        @async.Path::new(["test", "fixtures"]).mkdir()
-            #|  src/async/fs.mbt:700:20-700:45
+            #|  src/async/fs.mbt:705:20-705:45
             #|              reject(SystemError::exists(self))
             #|Exists: test/fixtures
+
           ,
         )
     }
