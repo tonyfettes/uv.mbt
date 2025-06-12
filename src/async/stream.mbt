@@ -1,8 +1,8 @@
 ///|
-type Iter[T] async (async (T) -> Unit!) -> Unit!
+type Iter[T] async (async (T) -> Unit raise) -> Unit raise
 
 ///|
-pub async fn[T] Iter::collect(self : Iter[T]) -> Array[T]! {
+pub async fn[T] Iter::collect(self : Iter[T]) -> Array[T] raise {
   let array = []
   (self._)(fn(item) { array.push(item) })
   array
@@ -11,7 +11,7 @@ pub async fn[T] Iter::collect(self : Iter[T]) -> Array[T]! {
 ///|
 pub async fn[T] Iter::filter(
   self : Iter[T],
-  f : async (T) -> Bool?Error
+  f : async (T) -> Bool raise?
 ) -> Iter[T] {
   fn(yield_) { (self._)(fn(item) { if f(item) { yield_(item) } }) }
 }
@@ -19,7 +19,7 @@ pub async fn[T] Iter::filter(
 ///|
 pub async fn[T, U] Iter::bind(
   self : Iter[T],
-  f : async (T) -> U??Error
+  f : async (T) -> U? raise?
 ) -> Iter[U] {
   fn(yield_) {
     (self._)(fn(item) {
@@ -35,7 +35,7 @@ pub async fn[T, U] Iter::bind(
 pub async fn Iter::text(
   self : Iter[@bytes.View],
   encoding~ : @encoding.Encoding = UTF8
-) -> String! {
+) -> String raise {
   let decoder = @encoding.decoder(encoding)
   let builder = StringBuilder::new()
   (self._)(fn(bytes) { decoder.decode_to(bytes, builder, stream=true) })
@@ -60,22 +60,25 @@ pub async fn Iter::decode(
 }
 
 ///|
-pub async fn Iter::bytes(self : Iter[@bytes.View]) -> Bytes! {
+pub async fn Iter::bytes(self : Iter[@bytes.View]) -> Bytes raise {
   let buffer = @buffer.new()
   (self._)(fn(bytes) { buffer.write_bytesview(bytes) })
   buffer.contents()
 }
 
 ///|
-pub async fn[T] Iter::each(self : Iter[T], f : async (T) -> Unit!) -> Unit! {
+pub async fn[T] Iter::each(
+  self : Iter[T],
+  f : async (T) -> Unit raise
+) -> Unit raise {
   (self._)(fn(item) { f(item) })
 }
 
 ///|
 pub trait Readable {
-  async read(Self) -> Iter[@bytes.View]!Error
-  async read_text(Self, encoding~ : @encoding.Encoding) -> String!Error = _
-  async read_bytes(Self) -> Bytes!Error = _
+  async read(Self) -> Iter[@bytes.View] raise Error
+  async read_text(Self, encoding~ : @encoding.Encoding) -> String raise Error = _
+  async read_bytes(Self) -> Bytes raise Error = _
 }
 
 ///|
@@ -95,10 +98,9 @@ impl Readable with read_bytes(self : Self) {
 
 ///|
 pub trait Writable {
-  async write(Self, Iter[@bytes.View]) -> Unit!Error
-  async write_text(Self, @string.View, encoding~ : @encoding.Encoding) ->
-       Unit!Error = _
-  async write_bytes(Self, @bytes.View) -> Unit!Error = _
+  async write(Self, Iter[@bytes.View]) -> Unit raise Error
+  async write_text(Self, @string.View, encoding~ : @encoding.Encoding) -> Unit raise Error = _
+  async write_bytes(Self, @bytes.View) -> Unit raise Error = _
 }
 
 ///|
@@ -120,27 +122,22 @@ impl Writable with write_text(
 impl Readable for @uv.Stream with read(self : @uv.Stream) {
   fn(yield_) {
     async_suspend_with_error(fn(resolve, reject) {
-      try
-        self.read_start(
-          fn(_, _) { Bytes::make(256, 0)[:] },
-          fn(_, count, bytes) {
-            async_run(fn() {
-              try yield_(bytes[:count]) catch {
-                e => reject(e)
-              }
-            })
-          },
-          fn(_, e) {
-            let _ = try? self.read_stop()
-            self.close(fn(_) {
-              if e is Errno(EOF) {
-                resolve(())
-              } else {
-                reject(e)
-              }
-            })
-          },
-        ) catch {
+      self.read_start(
+        fn(_, _) { Bytes::make(256, 0)[:] },
+        fn(_, count, bytes) {
+          async_run(fn() { yield_(bytes[:count]) catch { e => reject(e) } })
+        },
+        fn(_, e) {
+          let _ = try? self.read_stop()
+          self.close(fn(_) {
+            if e is Errno(EOF) {
+              resolve(())
+            } else {
+              reject(e)
+            }
+          })
+        },
+      ) catch {
         e => self.close(fn(_) { reject(e) })
       }
     })
@@ -151,10 +148,10 @@ impl Readable for @uv.Stream with read(self : @uv.Stream) {
 impl Writable for @uv.Stream with write(
   self : @uv.Stream,
   bytes : Iter[@bytes.View]
-) -> Unit!Error {
+) -> Unit raise Error {
   bytes.each(fn(bytes) {
     async_suspend_with_error(fn(resolve, reject) {
-      try self.write([bytes], fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
+      self.write([bytes], fn(_) { resolve(()) }, fn(_, e) { reject(e) }) catch {
         e => reject(e)
       }
     })

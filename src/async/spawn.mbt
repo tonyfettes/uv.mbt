@@ -57,25 +57,25 @@ async fn Process::wait(self : Process) -> Unit {
   if self.status is Some(_) {
     return
   }
-  async_suspend!(fn(resolve) { self.resolve.push(fn() { resolve(()) }) })
+  async_suspend(fn(resolve) { self.resolve.push(fn() { resolve(()) }) })
 }
 
 ///|
 pub async fn Process::status(self : Process) -> Int {
-  self.wait!()
+  self.wait()
   guard self.status is Some(status)
   status
 }
 
 ///|
 pub async fn Process::signal(self : Process) -> Int {
-  self.wait!()
+  self.wait()
   guard self.signal is Some(signal)
   signal
 }
 
 ///|
-pub fn Process::kill(self : Process, signum : Signum) -> Unit!Error {
+pub fn Process::kill(self : Process, signum : Signum) -> Unit raise Error {
   guard self.process is Some(process)
   let signum = match signum {
     SIGHUP => @uv.Signum::sighup()
@@ -84,9 +84,9 @@ pub fn Process::kill(self : Process, signum : Signum) -> Unit!Error {
     SIGABRT => @uv.Signum::sigabrt()
     SIGTERM => @uv.Signum::sigterm()
     SIGWINCH => @uv.Signum::sigwinch()
-    SIGPIPE => @uv.Signum::sigpipe!()
+    SIGPIPE => @uv.Signum::sigpipe()
   }
-  process.kill!(signum)
+  process.kill(signum)
 }
 
 ///|
@@ -98,7 +98,7 @@ trait Executable {
     stdin~ : ProcessInput,
     stdout~ : ProcessOutput,
     stderr~ : ProcessOutput,
-  ) -> Process!Error
+  ) -> Process raise Error
 }
 
 ///|
@@ -109,8 +109,8 @@ pub impl Executable for String with spawn(
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
-) -> Process!Error {
-  let uv = uv!()
+) -> Process raise Error {
+  let uv = uv()
   let args : Array[@string.View] = [
       self,
       ..args.map(fn(arg) { arg.to_string().view() }),
@@ -139,7 +139,7 @@ pub impl Executable for String with spawn(
       }
     })
   })
-  process.process = Some(uv.spawn!(options))
+  process.process = Some(uv.spawn(options))
   process
 }
 
@@ -151,7 +151,7 @@ pub impl Executable for &ToPath with spawn(
   stdin~ : ProcessInput,
   stdout~ : ProcessOutput,
   stderr~ : ProcessOutput
-) -> Process!Error {
+) -> Process raise Error {
   self.to_string() |> Executable::spawn(args, cwd~, stdin~, stdout~, stderr~)
 }
 
@@ -163,6 +163,6 @@ pub async fn[Exec : Executable] spawn(
   stdin~ : ProcessInput = Ignore,
   stdout~ : ProcessOutput = Ignore,
   stderr~ : ProcessOutput = Ignore
-) -> Process! {
-  exec.spawn!(args, cwd=cwd.map(_.to_path()), stdin~, stdout~, stderr~)
+) -> Process raise {
+  exec.spawn(args, cwd=cwd.map(_.to_path()), stdin~, stdout~, stderr~)
 }

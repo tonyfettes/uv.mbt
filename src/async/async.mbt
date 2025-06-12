@@ -4,7 +4,7 @@ async fn[T] async_suspend(f : ((T) -> Unit) -> Unit) -> T = "%async.suspend"
 ///|
 async fn[T, E : Error] async_suspend_with_error(
   f : ((T) -> Unit, (E) -> Unit) -> Unit
-) -> T!E = "%async.suspend"
+) -> T raise E = "%async.suspend"
 
 ///|
 fn async_run(f : async () -> Unit) -> Unit = "%async.run"
@@ -13,7 +13,7 @@ fn async_run(f : async () -> Unit) -> Unit = "%async.run"
 let uv_ref : Ref[@uv.Loop?] = Ref::new(None)
 
 ///|
-fn uv() -> @uv.Loop!@uv.Errno {
+fn uv() -> @uv.Loop raise @uv.Errno {
   if uv_ref.val is Some(uv) {
     return uv
   }
@@ -23,7 +23,7 @@ fn uv() -> @uv.Loop!@uv.Errno {
 }
 
 ///|
-pub fn[T] start(f : async () -> T!) -> T! {
+pub fn[T] start(f : async () -> T raise) -> T raise {
   let uv = uv()
   let mut value = None
   let mut error = None
@@ -49,7 +49,7 @@ pub fn[T] start(f : async () -> T!) -> T! {
 }
 
 ///|
-pub fn cwd() -> Path! {
+pub fn cwd() -> Path raise {
   Path::new(@uv.cwd())
 }
 
@@ -79,7 +79,10 @@ fn[E] Scope::reject(self : Scope[E], error : E) -> Unit {
 }
 
 ///|
-fn[E : Error] Scope::launch(self : Scope[E], f : async () -> Unit!E) -> Unit {
+fn[E : Error] Scope::launch(
+  self : Scope[E],
+  f : async () -> Unit raise E
+) -> Unit {
   if self.canceled {
     return
   }
@@ -95,7 +98,9 @@ fn[E : Error] Scope::launch(self : Scope[E], f : async () -> Unit!E) -> Unit {
 }
 
 ///|
-async fn[T, E : Error] Scope::new(f : async (Scope[E]) -> T!E) -> T!E {
+async fn[T, E : Error] Scope::new(
+  f : async (Scope[E]) -> T raise E
+) -> T raise E {
   let mut value = None
   async_suspend_with_error(fn(resolve, reject : (E) -> Unit) {
     let scope = Scope::{ launched: 0, canceled: false, resolve, reject }

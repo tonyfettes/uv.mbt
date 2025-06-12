@@ -204,7 +204,6 @@ test "trace" {
             #|  src/async/fs.mbt:705:20-705:45
             #|              reject(SystemError::exists(self))
             #|Exists: test/fixtures
-
           ,
         )
     }
