@@ -10,17 +10,17 @@ import(
 // Values
 fn args() -> Array[String]
 
-async fn[T] backtrace(loc~ : SourceLoc = _, () -> T!) -> T!
+async fn[T] backtrace(loc~ : SourceLoc = _, () -> T raise) -> T raise
 
-fn cwd() -> Path!
+fn cwd() -> Path raise
 
 fn[ToPath : ToPath] path(ToPath) -> &ToPath
 
 fn[ToPosixPath : ToPosixPath] posix_path(ToPosixPath) -> &ToPosixPath
 
-async fn[Exec : Executable] spawn(Exec, Array[@string.StringView], cwd? : &ToPath, stdin~ : ProcessInput = .., stdout~ : ProcessOutput = .., stderr~ : ProcessOutput = ..) -> Process!
+async fn[Exec : Executable] spawn(Exec, Array[@string.StringView], cwd? : &ToPath, stdin~ : ProcessInput = .., stdout~ : ProcessOutput = .., stderr~ : ProcessOutput = ..) -> Process raise
 
-fn[T] start(() -> T!) -> T!
+fn[T] start(() -> T raise) -> T raise
 
 let stderr : File
 
@@ -28,13 +28,13 @@ let stdin : File
 
 let stdout : File
 
-fn system() -> String!
+fn system() -> String raise
 
 fn[ToWindowsPath : ToWindowsPath] windows_path(ToWindowsPath) -> &ToWindowsPath
 
 // Types and methods
 type File
-async fn File::close(Self, loc~ : SourceLoc = _) -> Unit!
+async fn File::close(Self, loc~ : SourceLoc = _) -> Unit raise
 impl Readable for File
 impl Writable for File
 
@@ -50,49 +50,49 @@ pub enum FileType {
 }
 
 type Iter[T]
-async fn[T, U] Iter::bind(Self[T], (T) -> U??Error) -> Self[U]
-async fn Iter::bytes(Self[@bytes.View]) -> Bytes!
-async fn[T] Iter::collect(Self[T]) -> Array[T]!
+async fn[T, U] Iter::bind(Self[T], (T) -> U? raise?) -> Self[U]
+async fn Iter::bytes(Self[@bytes.View]) -> Bytes raise
+async fn[T] Iter::collect(Self[T]) -> Array[T] raise
 async fn Iter::decode(Self[@bytes.View], encoding~ : @encoding.Encoding) -> Self[String]
-async fn[T] Iter::each(Self[T], (T) -> Unit!) -> Unit!
-async fn[T] Iter::filter(Self[T], (T) -> Bool?Error) -> Self[T]
-async fn Iter::text(Self[@bytes.View], encoding~ : @encoding.Encoding = ..) -> String!
+async fn[T] Iter::each(Self[T], (T) -> Unit raise) -> Unit raise
+async fn[T] Iter::filter(Self[T], (T) -> Bool raise?) -> Self[T]
+async fn Iter::text(Self[@bytes.View], encoding~ : @encoding.Encoding = ..) -> String raise
 
 type Path
-async fn Path::access(Self, read~ : Bool = .., write~ : Bool = .., execute~ : Bool = .., loc~ : SourceLoc = _) -> Unit!
+async fn Path::access(Self, read~ : Bool = .., write~ : Bool = .., execute~ : Bool = .., loc~ : SourceLoc = _) -> Unit raise
 fn Path::anchor(Self) -> @string.StringView
-async fn[Target : ToPath] Path::copy_to(Self, Target, recursive~ : Bool = .., overwrite~ : Bool = .., loc~ : SourceLoc = _) -> Unit!
+async fn[Target : ToPath] Path::copy_to(Self, Target, recursive~ : Bool = .., overwrite~ : Bool = .., loc~ : SourceLoc = _) -> Unit raise
 fn Path::drive(Self) -> @string.StringView
-async fn Path::exists(Self, loc~ : SourceLoc = _) -> Bool!
-async fn Path::is_dir(Self, loc~ : SourceLoc = _) -> Bool!
-async fn Path::is_file(Self) -> Bool!
-async fn Path::iter(Self) -> Iter[Self]!
+async fn Path::exists(Self, loc~ : SourceLoc = _) -> Bool raise
+async fn Path::is_dir(Self, loc~ : SourceLoc = _) -> Bool raise
+async fn Path::is_file(Self) -> Bool raise
+async fn Path::iter(Self) -> Iter[Self] raise
 fn[ToPath : ToPath] Path::join(Self, ToPath) -> Self
-async fn Path::mkdir(Self, mode~ : Int = .., loc~ : SourceLoc = _) -> Unit!
-async fn[Target : ToPath] Path::move_to(Self, Target, loc~ : SourceLoc = _) -> Unit!
+async fn Path::mkdir(Self, mode~ : Int = .., loc~ : SourceLoc = _) -> Unit raise
+async fn[Target : ToPath] Path::move_to(Self, Target, loc~ : SourceLoc = _) -> Unit raise
 fn Path::name(Self) -> @string.StringView?
 fn[ToPath : ToPath] Path::new(ToPath) -> Self
-async fn Path::open(Self, loc~ : SourceLoc = _) -> File!
+async fn Path::open(Self, loc~ : SourceLoc = _) -> File raise
 fn Path::parent(Self) -> Self?
 fn Path::parse(@string.StringView) -> Self
 fn Path::parse_posix(@string.StringView) -> Self
 fn Path::parse_windows(@string.StringView) -> Self
 fn Path::parts(Self) -> ArrayView[@string.StringView]
 fn[ToPosixPath : ToPosixPath] Path::posix(ToPosixPath) -> Self
-fn Path::read(Self, loc~ : SourceLoc = _) -> Iter[@bytes.View]!
+fn Path::read(Self, loc~ : SourceLoc = _) -> Iter[@bytes.View] raise
 fn[ToPath : ToPath] Path::relative_to(Self, ToPath) -> Self
-async fn Path::remove(Self, recursive~ : Bool = .., loc~ : SourceLoc = _) -> Unit!
-async fn Path::resolve(Self, loc~ : SourceLoc = _) -> Self!
-async fn Path::rmdir(Self, loc~ : SourceLoc = _) -> Unit!
+async fn Path::remove(Self, recursive~ : Bool = .., loc~ : SourceLoc = _) -> Unit raise
+async fn Path::resolve(Self, loc~ : SourceLoc = _) -> Self raise
+async fn Path::rmdir(Self, loc~ : SourceLoc = _) -> Unit raise
 fn Path::root(Self) -> @string.StringView
-async fn Path::stat(Self, loc~ : SourceLoc = _) -> Stat!
+async fn Path::stat(Self, loc~ : SourceLoc = _) -> Stat raise
 fn Path::suffix(Self) -> @string.StringView?
 fn Path::to_posix_path(Self) -> Self
 fn Path::to_windows_path(Self) -> Self
-async fn Path::unlink(Self, loc~ : SourceLoc = _) -> Unit!
-async fn Path::walk(Self, loc~ : SourceLoc = _) -> Iter[Self]!
+async fn Path::unlink(Self, loc~ : SourceLoc = _) -> Unit raise
+async fn Path::walk(Self, loc~ : SourceLoc = _) -> Iter[Self] raise
 fn[ToWindowsPath : ToWindowsPath] Path::windows(ToWindowsPath) -> Self
-async fn Path::write(Self, Iter[@bytes.View], loc~ : SourceLoc = _) -> Unit!
+async fn Path::write(Self, Iter[@bytes.View], loc~ : SourceLoc = _) -> Unit raise
 impl Compare for Path
 impl Eq for Path
 impl Hash for Path
@@ -104,12 +104,12 @@ impl Writable for Path
 
 type Pipe
 async fn Pipe::close(Self) -> Unit
-fn Pipe::new(ipc~ : Bool = ..) -> Self!
+fn Pipe::new(ipc~ : Bool = ..) -> Self raise
 impl Readable for Pipe
 impl Writable for Pipe
 
 type Process
-fn Process::kill(Self, Signum) -> Unit!
+fn Process::kill(Self, Signum) -> Unit raise
 async fn Process::signal(Self) -> Int
 async fn Process::status(Self) -> Int
 
@@ -143,30 +143,30 @@ fn Stat::is_dir(Self) -> Bool
 fn Stat::is_file(Self) -> Bool
 fn Stat::type_(Self) -> FileType
 
-async fn ToPath::access(&Self, read~ : Bool = .., write~ : Bool = .., execute~ : Bool = ..) -> Unit!
+async fn ToPath::access(&Self, read~ : Bool = .., write~ : Bool = .., execute~ : Bool = ..) -> Unit raise
 fn ToPath::anchor(&Self) -> @string.StringView
 fn ToPath::drive(&Self) -> @string.StringView
-async fn ToPath::exists(&Self) -> Bool!
-async fn ToPath::is_dir(&Self) -> Bool!
-async fn ToPath::is_file(&Self) -> Bool!
+async fn ToPath::exists(&Self) -> Bool raise
+async fn ToPath::is_dir(&Self) -> Bool raise
+async fn ToPath::is_file(&Self) -> Bool raise
 fn ToPath::iter(&Self) -> Iter[&Self]
 fn[ToPath : ToPath] ToPath::join(&Self, ToPath) -> &Self
-async fn ToPath::mkdir(&Self, mode~ : Int = ..) -> Unit!
-async fn[Target : ToPath] ToPath::move_to(&Self, Target) -> Unit!
+async fn ToPath::mkdir(&Self, mode~ : Int = ..) -> Unit raise
+async fn[Target : ToPath] ToPath::move_to(&Self, Target) -> Unit raise
 fn ToPath::name(&Self) -> @string.StringView?
 fn[ToPath : ToPath] ToPath::new(ToPath) -> &Self
 fn ToPath::parent(&Self) -> &Self?
 fn ToPath::parts(&Self) -> ArrayView[@string.StringView]
-fn ToPath::read(&Self, loc~ : SourceLoc = _) -> Iter[@bytes.View]!
+fn ToPath::read(&Self, loc~ : SourceLoc = _) -> Iter[@bytes.View] raise
 fn ToPath::relative_to(&Self, &Self) -> &Self
-async fn ToPath::remove(&Self, recursive~ : Bool = .., loc~ : SourceLoc = _) -> Unit!
-async fn ToPath::resolve(&Self) -> &Self!
-async fn ToPath::rmdir(&Self, loc~ : SourceLoc = _) -> Unit!
+async fn ToPath::remove(&Self, recursive~ : Bool = .., loc~ : SourceLoc = _) -> Unit raise
+async fn ToPath::resolve(&Self) -> &Self raise
+async fn ToPath::rmdir(&Self, loc~ : SourceLoc = _) -> Unit raise
 fn ToPath::root(&Self) -> @string.StringView
 fn ToPath::suffix(&Self) -> @string.StringView?
 fn ToPath::to_posix_path(&Self) -> &ToPosixPath
 fn ToPath::to_windows_path(&Self) -> &ToWindowsPath
-async fn ToPath::unlink(&Self, loc~ : SourceLoc = _) -> Unit!
+async fn ToPath::unlink(&Self, loc~ : SourceLoc = _) -> Unit raise
 impl Compare for &ToPath
 impl Div for &ToPath
 impl Eq for &ToPath
@@ -209,9 +209,9 @@ impl Executable for String
 impl Executable for &ToPath
 
 pub trait Readable {
-  async read(Self) -> Iter[@bytes.View]!
-  async read_text(Self, encoding~ : @encoding.Encoding) -> String!
-  async read_bytes(Self) -> Bytes!
+  async read(Self) -> Iter[@bytes.View] raise
+  async read_text(Self, encoding~ : @encoding.Encoding) -> String raise
+  async read_bytes(Self) -> Bytes raise
 }
 impl Readable for Bytes
 impl Readable for @bytes.View
@@ -238,9 +238,9 @@ impl ToWindowsPath for @string.StringView
 impl ToWindowsPath for &ToPath
 
 pub trait Writable {
-  async write(Self, Iter[@bytes.View]) -> Unit!
-  async write_text(Self, @string.StringView, encoding~ : @encoding.Encoding) -> Unit!
-  async write_bytes(Self, @bytes.View) -> Unit!
+  async write(Self, Iter[@bytes.View]) -> Unit raise
+  async write_text(Self, @string.StringView, encoding~ : @encoding.Encoding) -> Unit raise
+  async write_bytes(Self, @bytes.View) -> Unit raise
 }
 impl Writable for @buffer.T
 impl Writable for &ToPath

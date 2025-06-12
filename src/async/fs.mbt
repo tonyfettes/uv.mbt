@@ -113,8 +113,9 @@ pub async fn Path::open(self : Path, loc~ : SourceLoc = _) -> File raise {
       ) catch {
         e => reject(e)
       }
-    }) catch! {
+    }) catch {
       @uv.Errno(ENOENT) => raise SystemError::not_found(self)
+      error => raise error
     }
   })
 }
