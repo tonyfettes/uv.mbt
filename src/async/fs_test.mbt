@@ -52,8 +52,8 @@ test "write/truncate" {
 ///|
 test "scandir" {
   @async.start(fn() {
-    @json.inspect(@async.Path::new(["test", "fixtures"]).iter().collect(), content=[
-      "test/fixtures/example.txt",
+    assert_eq(@async.Path::new(["test", "fixtures"]).iter().collect(), [
+      @async.Path::new(["test", "fixtures", "example.txt"]),
     ])
   })
 }
