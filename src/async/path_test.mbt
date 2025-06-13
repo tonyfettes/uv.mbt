@@ -228,37 +228,13 @@ test "posix/parent" {
   }
   let path = @async.Path::parse("/usr/bin/file.txt")
   let parent = path.parent()
-  @json.inspect(parent, content=[
-    {
-      "flavor": "posix",
-      "drive": "",
-      "root": "/",
-      "anchor": "/",
-      "parts": ["/", "usr", "bin"],
-    },
-  ])
+  @json.inspect(parent, content=["/usr/bin"])
   let grandparent = parent.bind(fn(parent) { parent.parent() })
-  @json.inspect(grandparent, content=[
-    {
-      "flavor": "posix",
-      "drive": "",
-      "root": "/",
-      "anchor": "/",
-      "parts": ["/", "usr"],
-    },
-  ])
+  @json.inspect(grandparent, content=["/usr"])
   let great_grandparent = grandparent.bind(fn(grandparent) {
     grandparent.parent()
   })
-  @json.inspect(great_grandparent, content=[
-    {
-      "flavor": "posix",
-      "drive": "",
-      "root": "/",
-      "anchor": "/",
-      "parts": ["/"],
-    },
-  ])
+  @json.inspect(great_grandparent, content=["/"])
   let great_great_grandparent = great_grandparent.bind(fn(great_grandparent) {
     great_grandparent.parent()
   })
@@ -287,25 +263,13 @@ test "posix/relative_to" {
   let path = @async.Path::parse("/usr/bin/file.txt")
   let base = @async.Path::parse("/usr/bin")
   let relative_path = path.relative_to(base)
-  @json.inspect(relative_path, content={
-    "flavor": "posix",
-    "drive": "",
-    "root": "",
-    "anchor": "",
-    "parts": ["file.txt"],
-  })
+  @json.inspect(relative_path, content="file.txt")
 }
 
 ///|
 test "Path::new(String)" {
   let path = @async.Path::new("a/b/c")
-  @json.inspect(path, content={
-    "flavor": "posix",
-    "drive": "",
-    "root": "",
-    "anchor": "",
-    "parts": ["a", "b", "c"],
-  })
+  @json.inspect(path, content="a/b/c")
   @json.inspect(path.parts(), content=["a", "b", "c"])
   @json.inspect(path.drive(), content="")
   @json.inspect(path.root(), content="")
@@ -316,43 +280,17 @@ test "Path::new(String)" {
 test "Path::parent" {
   let path = @async.Path::new("a/b/c/d/e")
   let parent = path.parent()
-  @json.inspect(parent, content=[
-    {
-      "flavor": "posix",
-      "drive": "",
-      "root": "",
-      "anchor": "",
-      "parts": ["a", "b", "c", "d"],
-    },
-  ])
+  @json.inspect(parent, content=["a/b/c/d"])
   let grandparent = parent.bind(fn(parent) { parent.parent() })
-  @json.inspect(grandparent, content=[
-    {
-      "flavor": "posix",
-      "drive": "",
-      "root": "",
-      "anchor": "",
-      "parts": ["a", "b", "c"],
-    },
-  ])
+  @json.inspect(grandparent, content=["a/b/c"])
   let great_grandparent = grandparent.bind(fn(grandparent) {
     grandparent.parent()
   })
-  @json.inspect(great_grandparent, content=[
-    {
-      "flavor": "posix",
-      "drive": "",
-      "root": "",
-      "anchor": "",
-      "parts": ["a", "b"],
-    },
-  ])
+  @json.inspect(great_grandparent, content=["a/b"])
   let great_great_grandparent = great_grandparent.bind(fn(great_grandparent) {
     great_grandparent.parent()
   })
-  @json.inspect(great_great_grandparent, content=[
-    { "flavor": "posix", "drive": "", "root": "", "anchor": "", "parts": ["a"] },
-  ])
+  @json.inspect(great_great_grandparent, content=["a"])
 }
 
 ///|
