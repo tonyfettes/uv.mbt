@@ -53,13 +53,7 @@ test "write/truncate" {
 test "scandir" {
   @async.start(fn() {
     @json.inspect(@async.Path::new(["test", "fixtures"]).iter().collect(), content=[
-      {
-        "flavor": "posix",
-        "drive": "",
-        "root": "",
-        "anchor": "",
-        "parts": ["test", "fixtures", "example.txt"],
-      },
+      "test/fixtures/example.txt",
     ])
   })
 }
@@ -141,41 +135,8 @@ test "walk" {
       let files = @async.Path::new(["test", "fixtures"]).walk().collect()
       files.sort()
       @json.inspect(files, content=[
-        {
-          "flavor": "posix",
-          "drive": "",
-          "root": "",
-          "anchor": "",
-          "parts": ["test", "fixtures", "example"],
-        },
-        {
-          "flavor": "posix",
-          "drive": "",
-          "root": "",
-          "anchor": "",
-          "parts": ["test", "fixtures", "example.txt"],
-        },
-        {
-          "flavor": "posix",
-          "drive": "",
-          "root": "",
-          "anchor": "",
-          "parts": ["test", "fixtures", "example_0.txt"],
-        },
-        {
-          "flavor": "posix",
-          "drive": "",
-          "root": "",
-          "anchor": "",
-          "parts": ["test", "fixtures", "example", "1.txt"],
-        },
-        {
-          "flavor": "posix",
-          "drive": "",
-          "root": "",
-          "anchor": "",
-          "parts": ["test", "fixtures", "example", "2.txt"],
-        },
+        "test/fixtures/example", "test/fixtures/example.txt", "test/fixtures/example_0.txt",
+        "test/fixtures/example/1.txt", "test/fixtures/example/2.txt",
       ])
       cleanup()
     } catch {
@@ -199,10 +160,10 @@ test "trace" {
           error,
           content=
             #|Trace:
-            #|  src/async/fs_test.mbt:194:7-194:53
+            #|  src/async/fs_test.mbt:155:7-155:53
             #|        @async.Path::new(["test", "fixtures"]).mkdir()
-            #|  src/async/fs.mbt:705:20-705:45
-            #|              reject(SystemError::exists(self))
+            #|  src/async/fs.mbt:685:18-685:43
+            #|            reject(SystemError::exists(self))
             #|Exists: test/fixtures
           ,
         )

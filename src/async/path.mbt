@@ -19,7 +19,21 @@ struct Path {
   root : @string.View
   anchor : @string.View
   parts : ArrayView[@string.View]
-} derive(Eq, Hash, ToJson)
+} derive(Eq, Hash)
+
+///|
+pub impl ToJson for Path with to_json(self : Path) -> Json {
+  self.to_string().to_json()
+}
+
+///|
+pub impl @json.FromJson for Path with from_json(
+  json : Json,
+  path : @json.JsonPath
+) -> Path {
+  let string : String = @json.FromJson::from_json(json, path)
+  Path::parse(string)
+}
 
 ///|
 pub fn Path::parts(self : Path) -> ArrayView[@string.View] {
@@ -46,11 +60,14 @@ pub impl Compare for Path with compare(self : Path, other : Path) -> Int {
   if self.flavor != other.flavor {
     return self.flavor.compare(other.flavor)
   }
+  if self.anchor != other.anchor {
+    return self.anchor.compare(other.anchor)
+  }
   return self.parts.compare(other.parts)
 }
 
 ///|
-pub fn Path::parse_posix(path : @string.View) -> Path {
+fn Path::parse_posix(path : @string.View) -> Path {
   let root = StringBuilder::new()
   fn make_path(path : Array[@string.View]) -> Path {
     let root = root.to_string()
@@ -162,11 +179,6 @@ test "posix_path/root" {
 }
 
 ///|
-pub fn[ToPosixPath : ToPosixPath] Path::posix(path : ToPosixPath) -> Path {
-  path.to_posix_path()
-}
-
-///|
 test "posix_path" {
   @json.inspect(Path::parse_posix("usr/bin"), content={
     "flavor": "posix",
@@ -267,7 +279,7 @@ test "posix_path/collapse_dots" {
 }
 
 ///|
-pub fn Path::parse_windows(path : @string.View) -> Path {
+fn Path::parse_windows(path : @string.View) -> Path {
   enum UncState {
     Zero
     One
@@ -395,13 +407,6 @@ pub fn Path::parse_windows(path : @string.View) -> Path {
       break path~ make_path(parts)
     }
   }
-}
-
-///|
-pub fn[ToWindowsPath : ToWindowsPath] Path::windows(
-  path : ToWindowsPath
-) -> Path {
-  path.to_windows_path()
 }
 
 ///|
@@ -895,7 +900,8 @@ pub fn[ToPath : ToPath] Path::relative_to(self : Path, other : ToPath) -> Path {
 }
 
 ///|
-impl Div for Path with op_div(self : Path, other : Path) -> Path {
+pub fn[ToPath : ToPath] Path::join(self : Path, other : ToPath) -> Path {
+  let other = other.to_path()
   match self.flavor {
     Windows => {
       let other = other.to_windows_path()
@@ -924,12 +930,7 @@ impl Div for Path with op_div(self : Path, other : Path) -> Path {
 }
 
 ///|
-pub fn[ToPath : ToPath] Path::join(self : Path, other : ToPath) -> Path {
-  self / other.to_path()
-}
-
-///|
-test "BasicPath::op_div" {
+test "Path::join" {
   let a = Path::{
     flavor: Posix,
     drive: "",
@@ -944,7 +945,7 @@ test "BasicPath::op_div" {
     anchor: "",
     parts: ["local", "bin"],
   }
-  let c = a / b
+  let c = a.join(b)
   inspect(c, content="usr/bin/local/bin")
   let a = Path::{
     flavor: Posix,
@@ -960,7 +961,7 @@ test "BasicPath::op_div" {
     anchor: "",
     parts: ["local", "bin"],
   }
-  let c = a / b
+  let c = a.join(b)
   inspect(c, content="/usr/bin/local/bin")
   let a = Path::{
     flavor: Posix,
@@ -976,7 +977,7 @@ test "BasicPath::op_div" {
     anchor: "/",
     parts: ["/", "local", "bin"],
   }
-  let c = a / b
+  let c = a.join(b)
   inspect(c, content="/local/bin")
   let a = Path::{
     flavor: Windows,
@@ -992,7 +993,7 @@ test "BasicPath::op_div" {
     anchor: "",
     parts: ["System32"],
   }
-  let c = a / b
+  let c = a.join(b)
   inspect(c, content="C:\\Windows\\System32")
   let a = Path::{
     flavor: Windows,
@@ -1008,7 +1009,7 @@ test "BasicPath::op_div" {
     anchor: "D:\\",
     parts: ["D:\\", "System32"],
   }
-  let c = a / b
+  let c = a.join(b)
   inspect(c, content="D:\\System32")
   let a = Path::{
     flavor: Windows,
@@ -1024,7 +1025,7 @@ test "BasicPath::op_div" {
     anchor: "\\",
     parts: ["\\", "System32"],
   }
-  let c = a / b
+  let c = a.join(b)
   inspect(c, content="C:\\System32")
 }
 
@@ -1063,31 +1064,21 @@ pub trait ToPath {
 }
 
 ///|
-pub impl ToPath for @string.View with to_path(self : @string.View) -> Path {
-  match flavor.val {
-    Windows => ToWindowsPath::to_windows_path(self)
-    Posix => ToPosixPath::to_posix_path(self)
-  }
-}
-
-///|
 pub impl ToPath for String with to_path(self : String) -> Path {
   ToPath::to_path(self.view())
 }
 
 ///|
+pub impl ToPath for @string.View with to_path(self : @string.View) -> Path {
+  match flavor.val {
+    Windows => Path::parse_windows(self)
+    Posix => Path::parse_posix(self)
+  }
+}
+
+///|
 pub impl ToPath for Path with to_path(self : Path) -> Path {
   self
-}
-
-///|
-pub impl ToPath for &ToWindowsPath with to_path(self : &ToWindowsPath) -> Path {
-  self.to_windows_path()
-}
-
-///|
-pub impl ToPath for &ToPosixPath with to_path(self : &ToPosixPath) -> Path {
-  self.to_posix_path()
 }
 
 ///|
@@ -1105,7 +1096,7 @@ pub impl[T : ToPath] ToPath for ArrayView[T] with to_path(self : ArrayView[T]) -
     parts: [],
   }
   for item in self {
-    path = path / item.to_path()
+    path = path.join(item.to_path())
   }
   path
 }
@@ -1124,353 +1115,53 @@ pub fn Path::parse(path : @string.View) -> Path {
 }
 
 ///|
-pub fn[ToPath : ToPath] &ToPath::new(path : ToPath) -> &ToPath {
-  path.to_path()
-}
-
-///|
 pub fn[ToPath : ToPath] path(path : ToPath) -> &ToPath {
   path.to_path()
 }
 
 ///|
-pub fn &ToPath::parts(self : &ToPath) -> ArrayView[@string.View] {
-  self.to_path().parts
-}
-
-///|
-pub fn &ToPath::drive(self : &ToPath) -> @string.View {
-  self.to_path().drive
-}
-
-///|
-pub fn &ToPath::root(self : &ToPath) -> @string.View {
-  return self.to_path().root
-}
-
-///|
-pub fn &ToPath::anchor(self : &ToPath) -> @string.View {
-  self.to_path().anchor
-}
-
-///|
-pub fn &ToPath::parent(self : &ToPath) -> &ToPath? {
-  match self.to_path().parent() {
-    None => None
-    Some(parent) => Some(parent)
-  }
-}
-
-///|
-pub fn &ToPath::to_windows_path(self : &ToPath) -> &ToWindowsPath {
-  match self.to_path().flavor {
-    Windows => {
-      self as &ToWindowsPath
-    }
-    Posix => {
-      &ToPosixPath::to_posix_path(self) as &ToWindowsPath
-    }
-  }
-}
-
-///|
-pub fn &ToPath::to_posix_path(self : &ToPath) -> &ToPosixPath {
-  match self.to_path().flavor {
-    Posix => {
-      self as &ToPosixPath
-    }
-    Windows => {
-      &ToWindowsPath::to_windows_path(self) as &ToPosixPath
-    }
-  }
-}
-
-///|
-pub impl Show for &ToPath with output(self : &ToPath, logger : &Logger) -> Unit {
-  self.to_path().output(logger)
-}
-
-///|
-pub impl Div for &ToPath with op_div(self : &ToPath, other : &ToPath) -> &ToPath {
-  let self = self.to_path()
-  match self.flavor {
-    Windows => {
-      &ToWindowsPath::op_div(self, other) as &ToPath
-    }
-    Posix => {
-      &ToPosixPath::op_div(self, other) as &ToPath
-    }
-  }
-}
-
-///|
-pub fn[ToPath : ToPath] &ToPath::join(
-  self : &ToPath,
-  other : ToPath
-) -> &ToPath {
-  self / other
-}
-
-///|
-pub impl ToJson for &ToPath with to_json(self : &ToPath) -> Json {
-  return self.to_string().to_json()
-}
-
-///|
-pub impl Eq for &ToPath with op_equal(self : &ToPath, other : &ToPath) -> Bool {
-  self.to_path() == other.to_path()
-}
-
-///|
-pub impl Compare for &ToPath with compare(self : &ToPath, other : &ToPath) -> Int {
-  self.to_path().compare(other.to_path())
-}
-
-///|
-pub impl Hash for &ToPath with hash_combine(self : &ToPath, hasher : Hasher) -> Unit {
-  self.to_path().hash_combine(hasher)
-}
-
-///|
-pub fn &ToPath::relative_to(self : &ToPath, other : &ToPath) -> &ToPath {
-  self.to_path().relative_to(other.to_path())
-}
-
-///|
-pub fn &ToPath::suffix(self : &ToPath) -> @string.View? {
-  self.to_path().suffix()
-}
-
-///|
-pub fn &ToPath::name(self : &ToPath) -> @string.View? {
-  self.to_path().name()
-}
-
-///|
-trait ToPosixPath {
-  to_posix_path(Self) -> Path
-}
-
-///|
-pub typealias &ToPosixPath as PosixPath
-
-///|
-pub impl ToPosixPath for @string.View with to_posix_path(self : @string.View) -> Path {
-  Path::parse_posix(self)
-}
-
-///|
-pub impl ToPosixPath for String with to_posix_path(self : String) -> Path {
-  Path::parse_posix(self.view())
-}
-
-///|
-impl ToPosixPath for Path with to_posix_path(self : Path) -> Path {
-  self.to_posix_path()
-}
-
-///|
-pub impl ToPosixPath for &ToPath with to_posix_path(self : &ToPath) -> Path {
-  self.to_path().to_posix_path()
-}
-
-///|
-pub fn[ToPosixPath : ToPosixPath] &ToPosixPath::new(
-  path : ToPosixPath
-) -> &ToPosixPath {
-  path
-}
-
-///|
-pub fn[ToPosixPath : ToPosixPath] posix_path(
-  path : ToPosixPath
-) -> &ToPosixPath {
-  path
-}
-
-///|
-pub impl Show for &ToPosixPath with output(
-  self : &ToPosixPath,
-  logger : &Logger
-) -> Unit {
-  self.to_posix_path().output(logger)
-}
-
-///|
-pub impl ToJson for &ToPosixPath with to_json(self : &ToPosixPath) -> Json {
-  self.to_string().to_json()
-}
-
-///|
-pub fn &ToPosixPath::parts(self : &ToPosixPath) -> ArrayView[@string.View] {
-  self.to_posix_path().parts
-}
-
-///|
-pub fn &ToPosixPath::root(self : &ToPosixPath) -> @string.View {
-  self.to_posix_path().root
-}
-
-///|
-pub fn &ToPosixPath::anchor(self : &ToPosixPath) -> @string.View {
-  self.to_posix_path().anchor
-}
-
-///|
-pub fn &ToPosixPath::parent(self : &ToPosixPath) -> &ToPosixPath? {
-  match self.to_posix_path().parent() {
-    None => None
-    Some(parent) => Some(parent as &ToPosixPath)
-  }
-}
-
-///|
-pub fn &ToPosixPath::to_windows_path(self : &ToPosixPath) -> &ToWindowsPath {
-  self.to_posix_path().to_windows_path()
-}
-
-///|
-pub fn &ToPosixPath::relative_to(
-  self : &ToPosixPath,
-  other : &ToPosixPath
-) -> &ToPosixPath {
-  self.to_posix_path().relative_to(other.to_posix_path())
-}
-
-///|
-pub impl Div for &ToPosixPath with op_div(
-  self : &ToPosixPath,
-  other : &ToPosixPath
-) -> &ToPosixPath {
-  let self = self.to_posix_path()
-  let other = other.to_posix_path()
-  if other.root != "" {
-    return other
-  }
-  Path::{ ..self, parts: [..self.parts, ..other.parts] }
-}
-
-///|
-pub fn &ToPosixPath::to_path(self : &ToPosixPath) -> &ToPath {
-  self.to_posix_path() as &ToPath
-}
-
-///|
-trait ToWindowsPath {
-  to_windows_path(Self) -> Path
-}
-
-///|
-pub typealias &ToWindowsPath as WindowsPath
-
-///|
-pub impl ToWindowsPath for @string.View with to_windows_path(
-  self : @string.View
-) -> Path {
-  Path::parse_windows(self)
-}
-
-///|
-pub impl ToWindowsPath for String with to_windows_path(self : String) -> Path {
-  Path::parse_windows(self.view())
-}
-
-///|
-impl ToWindowsPath for Path with to_windows_path(self : Path) -> Path {
-  self.to_windows_path()
-}
-
-///|
-pub impl ToWindowsPath for &ToPath with to_windows_path(self : &ToPath) -> Path {
-  self.to_path().to_windows_path()
-}
-
-///|
-pub fn[ToWindowsPath : ToWindowsPath] &ToWindowsPath::new(
-  path : ToWindowsPath
-) -> &ToWindowsPath {
-  path.to_windows_path()
-}
-
-///|
-pub fn[ToWindowsPath : ToWindowsPath] windows_path(
-  path : ToWindowsPath
-) -> &ToWindowsPath {
-  path.to_windows_path()
-}
-
-///|
-pub impl Show for &ToWindowsPath with output(
-  self : &ToWindowsPath,
-  logger : &Logger
-) -> Unit {
-  self.to_windows_path().output(logger)
-}
-
-///|
-pub impl ToJson for &ToWindowsPath with to_json(self : &ToWindowsPath) -> Json {
-  self.to_string().to_json()
-}
-
-///|
-pub fn &ToWindowsPath::parts(self : &ToWindowsPath) -> ArrayView[@string.View] {
-  self.to_windows_path().parts
-}
-
-///|
-pub fn &ToWindowsPath::drive(self : &ToWindowsPath) -> @string.View {
-  self.to_windows_path().drive
-}
-
-///|
-pub fn &ToWindowsPath::root(self : &ToWindowsPath) -> @string.View {
-  return self.to_windows_path().root
-}
-
-///|
-pub fn &ToWindowsPath::anchor(self : &ToWindowsPath) -> @string.View {
-  self.to_windows_path().anchor
-}
-
-///|
-pub fn &ToWindowsPath::parent(self : &ToWindowsPath) -> &ToWindowsPath? {
-  match self.to_windows_path().parent() {
-    None => None
-    Some(parent) => Some(parent)
-  }
-}
-
-///|
-pub fn &ToWindowsPath::to_posix_path(self : &ToWindowsPath) -> &ToPosixPath {
-  self.to_windows_path().to_posix_path()
-}
-
-///|
-pub impl Div for &ToWindowsPath with op_div(
-  self : &ToWindowsPath,
-  other : &ToWindowsPath
-) -> &ToWindowsPath {
-  let self = self.to_windows_path()
-  let other = other.to_windows_path()
-  if other.drive != "" {
-    return other
-  }
-  if other.root != "" {
-    return Path::{
-      flavor: Windows,
-      drive: self.drive,
-      root: other.root,
-      anchor: [..self.drive, ..other.root],
-      parts: other.parts,
-    }
-  }
-  Path::{ ..self, parts: [..self.parts, ..other.parts] }
-}
-
-///|
-pub fn &ToWindowsPath::relative_to(
-  self : &ToWindowsPath,
-  other : &ToWindowsPath
-) -> &ToWindowsPath {
-  self.to_windows_path().relative_to(other.to_windows_path())
+test "concat" {
+  let win_path = Path::parse_windows("C:\\a\\b")
+  let unc_path = Path::parse_windows("\\\\server\\share\\a\\b")
+  let win_rel_path = Path::parse_windows("a\\b")
+  let nix_abs_path = Path::parse_posix("/c/d")
+  let nix_ds_path = Path::parse_posix("//c/d")
+  let nix_rel_path = Path::parse_posix("c/d")
+  inspect(win_path.join(win_path), content="C:\\a\\b")
+  inspect(win_path.join(unc_path), content="\\\\server\\share\\a\\b")
+  inspect(win_path.join(win_rel_path), content="C:\\a\\b\\a\\b")
+  inspect(win_path.join(nix_abs_path), content="C:\\c\\d")
+  inspect(win_path.join(nix_ds_path), content="\\\\c\\d\\")
+  inspect(win_path.join(nix_ds_path).drive(), content="\\\\c\\d")
+  inspect(win_path.join(nix_ds_path).root(), content="\\")
+  inspect(win_path.join(nix_rel_path), content="C:\\a\\b\\c\\d")
+  inspect(unc_path.join(win_path), content="C:\\a\\b")
+  inspect(unc_path.join(win_rel_path), content="\\\\server\\share\\a\\b\\a\\b")
+  inspect(unc_path.join(unc_path), content="\\\\server\\share\\a\\b")
+  inspect(
+    unc_path.join(nix_abs_path.to_windows_path()),
+    content="\\\\server\\share\\c\\d",
+  )
+  inspect(unc_path.join(nix_ds_path), content="\\\\c\\d\\")
+  inspect(unc_path.join(nix_ds_path).drive(), content="\\\\c\\d")
+  inspect(unc_path.join(nix_ds_path).root(), content="\\")
+  inspect(unc_path.join(nix_rel_path), content="\\\\server\\share\\a\\b\\c\\d")
+  inspect(nix_abs_path.join(win_path.to_posix_path()), content="/c/d/C:/a/b")
+  inspect(
+    nix_abs_path.join(unc_path.to_posix_path()),
+    content="//server/share/a/b",
+  )
+  inspect(nix_abs_path.join(win_rel_path.to_posix_path()), content="/c/d/a/b")
+  inspect(nix_abs_path.join(nix_abs_path), content="/c/d")
+  inspect(nix_abs_path.join(nix_ds_path), content="//c/d")
+  inspect(nix_abs_path.join(nix_rel_path), content="/c/d/c/d")
+  inspect(nix_ds_path.join(win_path.to_posix_path()), content="//c/d/C:/a/b")
+  inspect(
+    nix_ds_path.join(unc_path.to_posix_path()),
+    content="//server/share/a/b",
+  )
+  inspect(nix_ds_path.join(win_rel_path.to_posix_path()), content="//c/d/a/b")
+  inspect(nix_ds_path.join(nix_abs_path), content="/c/d")
+  inspect(nix_ds_path.join(nix_ds_path), content="//c/d")
+  inspect(nix_ds_path.join(nix_rel_path), content="//c/d/c/d")
 }

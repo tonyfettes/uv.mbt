@@ -144,8 +144,8 @@ pub impl Executable for String with spawn(
 }
 
 ///|
-pub impl Executable for &ToPath with spawn(
-  self : &ToPath,
+pub impl Executable for Path with spawn(
+  self : Path,
   args : Array[@string.View],
   cwd~ : Path?,
   stdin~ : ProcessInput,

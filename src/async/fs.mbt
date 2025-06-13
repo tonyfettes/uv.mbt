@@ -163,19 +163,6 @@ pub fn Path::read(self : Path, loc~ : SourceLoc = _) -> Iter[@bytes.View] raise 
 }
 
 ///|
-pub fn &ToPath::read(
-  self : &ToPath,
-  loc~ : SourceLoc = _
-) -> Iter[@bytes.View] raise {
-  self.to_path().read(loc~)
-}
-
-///|
-pub impl Readable for &ToPath with read(self : &ToPath) -> Iter[@bytes.View] raise {
-  self.read()
-}
-
-///|
 pub impl Readable for Path with read(self : Path) -> Iter[@bytes.View] raise {
   self.read()
 }
@@ -220,14 +207,6 @@ pub async fn Path::write(
 }
 
 ///|
-pub impl Writable for &ToPath with write(
-  self : &ToPath,
-  bytes : Iter[@bytes.View]
-) -> Unit raise {
-  self.to_path().write(bytes)
-}
-
-///|
 pub impl Writable for Path with write(self : Path, bytes : Iter[@bytes.View]) -> Unit raise {
   self.write(bytes)
 }
@@ -248,7 +227,7 @@ pub async fn Path::iter(self : Path) -> Iter[Path] raise {
             while true {
               let dirent = @uv.fs_scandir_next(req)
               let name = dirent.name()
-              yield_(self / ToPath::to_path(name))
+              yield_(self.join(name))
             }
           } catch {
             @uv.Errno(EOF) => ()
@@ -262,11 +241,6 @@ pub async fn Path::iter(self : Path) -> Iter[Path] raise {
       e => reject(e)
     }
   })
-}
-
-///|
-pub fn &ToPath::iter(self : &ToPath) -> Iter[&ToPath] {
-  fn(yield_) { self.to_path().iter().each(fn(path) { yield_(path) }) }
 }
 
 ///|
@@ -285,7 +259,7 @@ pub async fn Path::walk(self : Path, loc~ : SourceLoc = _) -> Iter[Path] raise {
                   let dirent = @uv.fs_scandir_next(req)
                   let type_ = dirent.type_()
                   let name = dirent.name()
-                  let path = self / ToPath::to_path(name)
+                  let path = self.join(ToPath::to_path(name))
                   yield_(path)
                   if type_ is Dir {
                     (path.walk()._)(fn(path) { yield_(path) })
@@ -364,19 +338,9 @@ pub async fn Path::is_dir(self : Path, loc~ : SourceLoc = _) -> Bool raise {
 }
 
 ///|
-pub async fn &ToPath::is_dir(self : &ToPath) -> Bool raise {
-  self.to_path().is_dir()
-}
-
-///|
 pub async fn Path::is_file(self : Path) -> Bool raise {
   let stat = self.stat()
   stat.is_file()
-}
-
-///|
-pub async fn &ToPath::is_file(self : &ToPath) -> Bool raise {
-  self.to_path().is_file()
 }
 
 ///|
@@ -407,17 +371,12 @@ pub async fn Path::resolve(self : Path, loc~ : SourceLoc = _) -> Path raise {
 }
 
 ///|
-pub async fn &ToPath::resolve(self : &ToPath) -> &ToPath raise {
-  self.to_path().resolve()
-}
-
-///|
 priv enum ErrorInfo {
-  Exists(&ToPath)
-  IsDirectory(&ToPath)
-  NotEmpty(&ToPath)
-  NotFound(&ToPath)
-  NotSupported(&ToPath)
+  Exists(Path)
+  IsDirectory(Path)
+  NotEmpty(Path)
+  NotFound(Path)
+  NotSupported(Path)
 } derive(ToJson(repr(ext_tagged)))
 
 ///|
@@ -507,7 +466,7 @@ fn SystemError::new(
 
 ///|
 fn SystemError::exists(
-  path : &ToPath,
+  path : Path,
   loc~ : SourceLoc = _,
   caller? : SourceLoc
 ) -> SystemError {
@@ -519,28 +478,22 @@ fn SystemError::exists(
 }
 
 ///|
-fn SystemError::is_directory(
-  path : &ToPath,
-  loc~ : SourceLoc = _
-) -> SystemError {
+fn SystemError::is_directory(path : Path, loc~ : SourceLoc = _) -> SystemError {
   SystemError((IsDirectory(path), [loc]))
 }
 
 ///|
-fn SystemError::not_empty(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
+fn SystemError::not_empty(path : Path, loc~ : SourceLoc = _) -> SystemError {
   SystemError((NotEmpty(path), [loc]))
 }
 
 ///|
-fn SystemError::not_found(path : &ToPath, loc~ : SourceLoc = _) -> SystemError {
+fn SystemError::not_found(path : Path, loc~ : SourceLoc = _) -> SystemError {
   SystemError((NotFound(path), [loc]))
 }
 
 ///|
-fn SystemError::not_supported(
-  self : &ToPath,
-  loc~ : SourceLoc = _
-) -> SystemError {
+fn SystemError::not_supported(self : Path, loc~ : SourceLoc = _) -> SystemError {
   SystemError((NotSupported(self), [loc]))
 }
 
@@ -580,7 +533,7 @@ pub async fn[Target : ToPath] Path::copy_to(
       self
       .iter()
       .each(fn(entry) {
-        let target_entry = target / entry.relative_to(self)
+        let target_entry = target.join(entry.relative_to(self))
         entry.copy_to(target_entry, recursive~, overwrite~)
       })
     } else {
@@ -621,14 +574,6 @@ pub async fn[Target : ToPath] Path::move_to(
 }
 
 ///|
-pub async fn[Target : ToPath] &ToPath::move_to(
-  self : &ToPath,
-  target : Target
-) -> Unit raise {
-  self.to_path().move_to(target)
-}
-
-///|
 pub async fn Path::unlink(self : Path, loc~ : SourceLoc = _) -> Unit raise {
   let uv = uv()
   backtrace(loc~, fn() {
@@ -647,14 +592,6 @@ pub async fn Path::unlink(self : Path, loc~ : SourceLoc = _) -> Unit raise {
 }
 
 ///|
-pub async fn &ToPath::unlink(
-  self : &ToPath,
-  loc~ : SourceLoc = _
-) -> Unit raise {
-  backtrace(loc~, fn() { self.to_path().unlink() })
-}
-
-///|
 pub async fn Path::rmdir(self : Path, loc~ : SourceLoc = _) -> Unit raise {
   let uv = uv()
   backtrace(loc~, fn() {
@@ -670,11 +607,6 @@ pub async fn Path::rmdir(self : Path, loc~ : SourceLoc = _) -> Unit raise {
       error => raise error
     }
   })
-}
-
-///|
-pub async fn &ToPath::rmdir(self : &ToPath, loc~ : SourceLoc = _) -> Unit raise {
-  backtrace(loc~, fn() { self.to_path().rmdir() })
 }
 
 ///|
@@ -701,11 +633,6 @@ pub async fn Path::mkdir(
 }
 
 ///|
-pub async fn &ToPath::mkdir(self : &ToPath, mode~ : Int = 0o777) -> Unit raise {
-  self.to_path().mkdir(mode~)
-}
-
-///|
 pub async fn Path::access(
   self : Path,
   read~ : Bool = false,
@@ -729,16 +656,6 @@ pub async fn Path::access(
 }
 
 ///|
-pub async fn &ToPath::access(
-  self : &ToPath,
-  read~ : Bool = false,
-  write~ : Bool = false,
-  execute~ : Bool = false
-) -> Unit raise {
-  self.to_path().access(read~, write~, execute~)
-}
-
-///|
 pub async fn Path::exists(self : Path, loc~ : SourceLoc = _) -> Bool raise {
   backtrace(loc~, fn() {
     try {
@@ -749,11 +666,6 @@ pub async fn Path::exists(self : Path, loc~ : SourceLoc = _) -> Bool raise {
       error => raise error
     }
   })
-}
-
-///|
-pub async fn &ToPath::exists(self : &ToPath) -> Bool raise {
-  self.to_path().exists()
 }
 
 ///|
@@ -780,13 +692,4 @@ pub async fn Path::remove(
       self.unlink()
     }
   })
-}
-
-///|
-pub async fn &ToPath::remove(
-  self : &ToPath,
-  recursive~ : Bool = false,
-  loc~ : SourceLoc = _
-) -> Unit raise {
-  backtrace(loc~, fn() { self.to_path().remove(recursive~) })
 }

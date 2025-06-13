@@ -22,8 +22,11 @@ test "relative_to" {
 
 ///|
 test "windows/String" {
+  if @async.system() != "Windows_NT" {
+    return
+  }
   let string : String = "C:\\Windows\\System32\\file.txt"
-  let path = @async.Path::windows(string)
+  let path = @async.Path::parse(string)
   @json.inspect(path, content={
     "flavor": "windows",
     "drive": "C:",
@@ -41,8 +44,11 @@ test "windows/String" {
 
 ///|
 test "windows/@string.View" {
+  if @async.system() != "Windows_NT" {
+    return
+  }
   let string : @string.View = "C:/Windows/System32/file.txt"
-  let path = @async.Path::windows(string)
+  let path = @async.Path::parse(string)
   @json.inspect(path, content={
     "flavor": "windows",
     "drive": "C:",
@@ -60,7 +66,10 @@ test "windows/@string.View" {
 
 ///|
 test "windows/drive" {
-  let path = @async.windows_path("C:\\Windows\\System32")
+  if @async.system() != "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("C:\\Windows\\System32")
   @json.inspect(path.parts(), content=["C:\\", "Windows", "System32"])
   @json.inspect(path.drive(), content="C:")
   @json.inspect(path.root(), content="\\")
@@ -70,7 +79,10 @@ test "windows/drive" {
 
 ///|
 test "windows/unc" {
-  let path = @async.Path::windows("\\\\server\\share\\file.txt")
+  if @async.system() != "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("\\\\server\\share\\file.txt")
   @json.inspect(path.parts(), content=["\\\\server\\share\\", "file.txt"])
   @json.inspect(path.drive(), content="\\\\server\\share")
   @json.inspect(path.root(), content="\\")
@@ -79,7 +91,10 @@ test "windows/unc" {
 
 ///|
 test "windows/relative" {
-  let path = @async.Path::windows("directory/file.txt")
+  if @async.system() != "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("directory/file.txt")
   @json.inspect(path.parts(), content=["directory", "file.txt"])
   @json.inspect(path.drive(), content="")
   @json.inspect(path.root(), content="")
@@ -88,7 +103,10 @@ test "windows/relative" {
 
 ///|
 test "windows/parent" {
-  let path = @async.Path::windows("C:\\Windows\\System32\\file.txt")
+  if @async.system() != "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("C:\\Windows\\System32\\file.txt")
   let parent = path.parent()
   @json.inspect(parent, content=[
     {
@@ -129,21 +147,27 @@ test "windows/parent" {
 
 ///|
 test "windows/to_posix_path" {
-  let path = @async.Path::windows("C:\\Windows\\System32\\file.txt")
+  if @async.system() != "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("C:\\Windows\\System32\\file.txt")
   let posix_path = path.to_posix_path()
   inspect(posix_path, content="C:/Windows/System32/file.txt")
-  let path = @async.Path::windows("\\\\server\\share\\file.txt")
+  let path = @async.Path::parse("\\\\server\\share\\file.txt")
   let posix_path = path.to_posix_path()
   inspect(posix_path, content="//server/share/file.txt")
-  let path = @async.Path::windows("directory/file.txt")
+  let path = @async.Path::parse("directory/file.txt")
   let posix_path = path.to_posix_path()
   inspect(posix_path, content="directory/file.txt")
 }
 
 ///|
 test "windows/relative_to" {
-  let path = @async.Path::windows("C:\\Windows\\System32\\file.txt")
-  let base = @async.Path::windows("C:\\Windows\\System32")
+  if @async.system() != "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("C:\\Windows\\System32\\file.txt")
+  let base = @async.Path::parse("C:\\Windows\\System32")
   let relative_path = path.relative_to(base)
   @json.inspect(relative_path, content={
     "flavor": "windows",
@@ -156,21 +180,30 @@ test "windows/relative_to" {
 
 ///|
 test "posix/String" {
+  if @async.system() == "Windows_NT" {
+    return
+  }
   let string : String = "/usr/bin/file.txt"
-  let path = @async.Path::posix(string)
+  let path = @async.Path::parse(string)
   inspect(path, content="/usr/bin/file.txt")
 }
 
 ///|
 test "posix/@string.View" {
+  if @async.system() == "Windows_NT" {
+    return
+  }
   let string : @string.View = "/usr/bin/file.txt"
-  let path = @async.Path::posix(string)
+  let path = @async.Path::parse(string)
   inspect(path, content="/usr/bin/file.txt")
 }
 
 ///|
 test "posix/parts" {
-  let path = @async.posix_path("/usr/bin/file.txt")
+  if @async.system() == "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("/usr/bin/file.txt")
   @json.inspect(path.parts(), content=["/", "usr", "bin", "file.txt"])
   @json.inspect(path.root(), content="/")
   @json.inspect(path.anchor(), content="/")
@@ -179,7 +212,10 @@ test "posix/parts" {
 
 ///|
 test "posix/impl" {
-  let path = @async.Path::posix("//usr//bin//file.txt")
+  if @async.system() == "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("//usr//bin//file.txt")
   @json.inspect(path.parts(), content=["//", "usr", "bin", "file.txt"])
   @json.inspect(path.root(), content="//")
   inspect(path, content="//usr/bin/file.txt")
@@ -187,7 +223,10 @@ test "posix/impl" {
 
 ///|
 test "posix/parent" {
-  let path = @async.Path::posix("/usr/bin/file.txt")
+  if @async.system() == "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("/usr/bin/file.txt")
   let parent = path.parent()
   @json.inspect(parent, content=[
     {
@@ -228,10 +267,13 @@ test "posix/parent" {
 
 ///|
 test "posix/to_windows_path" {
-  let path = @async.Path::posix("/usr/bin/file.txt")
+  if @async.system() == "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("/usr/bin/file.txt")
   let windows_path = path.to_windows_path()
   inspect(windows_path, content="\\usr\\bin\\file.txt")
-  let path = @async.Path::posix("//usr//bin//file.txt")
+  let path = @async.Path::parse("//usr//bin//file.txt")
   let windows_path = path.to_windows_path()
   inspect(windows_path, content="\\\\usr\\bin\\file.txt")
   @json.inspect(windows_path.parts(), content=["\\\\usr\\bin\\", "file.txt"])
@@ -239,8 +281,11 @@ test "posix/to_windows_path" {
 
 ///|
 test "posix/relative_to" {
-  let path = @async.Path::posix("/usr/bin/file.txt")
-  let base = @async.Path::posix("/usr/bin")
+  if @async.system() == "Windows_NT" {
+    return
+  }
+  let path = @async.Path::parse("/usr/bin/file.txt")
+  let base = @async.Path::parse("/usr/bin")
   let relative_path = path.relative_to(base)
   @json.inspect(relative_path, content={
     "flavor": "posix",
@@ -341,51 +386,4 @@ test "Path::op_equal" {
   @json.inspect(path1 == path3, content=false)
   @json.inspect(path1 != path2, content=false)
   @json.inspect(path1 != path3, content=true)
-}
-
-///|
-test "concat" {
-  let win_path = @async.Path::windows("C:\\a\\b")
-  let unc_path = @async.Path::windows("\\\\server\\share\\a\\b")
-  let win_rel_path = @async.Path::windows("a\\b")
-  let nix_abs_path = @async.Path::posix("/c/d")
-  let nix_ds_path = @async.Path::posix("//c/d")
-  let nix_rel_path = @async.Path::posix("c/d")
-  inspect(win_path.join(win_path), content="C:\\a\\b")
-  inspect(win_path.join(unc_path), content="\\\\server\\share\\a\\b")
-  inspect(win_path.join(win_rel_path), content="C:\\a\\b\\a\\b")
-  inspect(win_path.join(nix_abs_path), content="C:\\c\\d")
-  inspect(win_path.join(nix_ds_path), content="\\\\c\\d\\")
-  inspect(win_path.join(nix_ds_path).drive(), content="\\\\c\\d")
-  inspect(win_path.join(nix_ds_path).root(), content="\\")
-  inspect(win_path.join(nix_rel_path), content="C:\\a\\b\\c\\d")
-  inspect(unc_path.join(win_path), content="C:\\a\\b")
-  inspect(unc_path.join(win_rel_path), content="\\\\server\\share\\a\\b\\a\\b")
-  inspect(unc_path.join(unc_path), content="\\\\server\\share\\a\\b")
-  inspect(
-    unc_path.join(nix_abs_path.to_windows_path()),
-    content="\\\\server\\share\\c\\d",
-  )
-  inspect(unc_path.join(nix_ds_path), content="\\\\c\\d\\")
-  inspect(unc_path.join(nix_ds_path).drive(), content="\\\\c\\d")
-  inspect(unc_path.join(nix_ds_path).root(), content="\\")
-  inspect(unc_path.join(nix_rel_path), content="\\\\server\\share\\a\\b\\c\\d")
-  inspect(nix_abs_path.join(win_path.to_posix_path()), content="/c/d/C:/a/b")
-  inspect(
-    nix_abs_path.join(unc_path.to_posix_path()),
-    content="//server/share/a/b",
-  )
-  inspect(nix_abs_path.join(win_rel_path.to_posix_path()), content="/c/d/a/b")
-  inspect(nix_abs_path.join(nix_abs_path), content="/c/d")
-  inspect(nix_abs_path.join(nix_ds_path), content="//c/d")
-  inspect(nix_abs_path.join(nix_rel_path), content="/c/d/c/d")
-  inspect(nix_ds_path.join(win_path.to_posix_path()), content="//c/d/C:/a/b")
-  inspect(
-    nix_ds_path.join(unc_path.to_posix_path()),
-    content="//server/share/a/b",
-  )
-  inspect(nix_ds_path.join(win_rel_path.to_posix_path()), content="//c/d/a/b")
-  inspect(nix_ds_path.join(nix_abs_path), content="/c/d")
-  inspect(nix_ds_path.join(nix_ds_path), content="//c/d")
-  inspect(nix_ds_path.join(nix_rel_path), content="//c/d/c/d")
 }
