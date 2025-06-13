@@ -275,7 +275,11 @@ test "posix/relative_to" {
 ///|
 test "Path::new(String)" {
   let path = @async.Path::new("a/b/c")
-  @json.inspect(path, content="a/b/c")
+  if @async.system() == "Windows_NT" {
+    @json.inspect(path, content="a\\b\\c")
+  } else {
+    @json.inspect(path, content="a/b/c")
+  }
   @json.inspect(path.parts().collect(), content=["a", "b", "c"])
   @json.inspect(path.drive(), content="")
   @json.inspect(path.root(), content="")
@@ -286,13 +290,25 @@ test "Path::new(String)" {
 test "Path::parent" {
   let path = @async.Path::new("a/b/c/d/e")
   let parent = path.parent()
-  @json.inspect(parent, content=["a/b/c/d"])
+  if @async.system() == "Windows_NT" {
+    @json.inspect(parent, content=["a\\b\\c\\d"])
+  } else {
+    @json.inspect(parent, content=["a/b/c/d"])
+  }
   let grandparent = parent.bind(fn(parent) { parent.parent() })
-  @json.inspect(grandparent, content=["a/b/c"])
+  if @async.system() == "Windows_NT" {
+    @json.inspect(grandparent, content=["a\\b\\c"])
+  } else {
+    @json.inspect(grandparent, content=["a/b/c"])
+  }
   let great_grandparent = grandparent.bind(fn(grandparent) {
     grandparent.parent()
   })
-  @json.inspect(great_grandparent, content=["a/b"])
+  if @async.system() == "Windows_NT" {
+    @json.inspect(great_grandparent, content=["a\\b"])
+  } else {
+    @json.inspect(great_grandparent, content=["a/b"])
+  }
   let great_great_grandparent = great_grandparent.bind(fn(great_grandparent) {
     great_grandparent.parent()
   })
