@@ -58,7 +58,7 @@ test "spawn: capture stdout and stderr" {
 ///|
 test "spawn: send stdin" {
   @async.start(fn() {
-    if @async.system() != "Windows" {
+    if @async.system() != "Windows_NT" {
       let stdin = @async.Pipe::new()
       let stdout = @async.Pipe::new()
       let process = @async.spawn(

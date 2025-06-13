@@ -29,13 +29,11 @@ pub fn[T] start(f : async () -> T raise) -> T raise {
   let mut error = None
   async_run(fn() {
     try {
-      let _ = {
-        value = Some(f())
-      }
-
+      value = Some(f())
     } catch {
       e => error = Some(e)
     }
+    uv.walk(fn(handle) { handle.close(fn(_) {  }) })
   })
   uv.run(Default)
   uv_ref.val = None
