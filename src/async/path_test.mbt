@@ -34,7 +34,7 @@ test "windows/String" {
     "anchor": "C:\\",
     "parts": ["C:\\", "Windows", "System32", "file.txt"],
   })
-  @json.inspect(path.parts(), content=[
+  @json.inspect(path.parts().collect(), content=[
     "C:\\", "Windows", "System32", "file.txt",
   ])
   @json.inspect(path.drive(), content="C:")
@@ -56,7 +56,7 @@ test "windows/@string.View" {
     "anchor": "C:\\",
     "parts": ["C:\\", "Windows", "System32", "file.txt"],
   })
-  @json.inspect(path.parts(), content=[
+  @json.inspect(path.parts().collect(), content=[
     "C:\\", "Windows", "System32", "file.txt",
   ])
   @json.inspect(path.drive(), content="C:")
@@ -70,7 +70,7 @@ test "windows/drive" {
     return
   }
   let path = @async.Path::parse("C:\\Windows\\System32")
-  @json.inspect(path.parts(), content=["C:\\", "Windows", "System32"])
+  @json.inspect(path.parts().collect(), content=["C:\\", "Windows", "System32"])
   @json.inspect(path.drive(), content="C:")
   @json.inspect(path.root(), content="\\")
   @json.inspect(path.anchor(), content="C:\\")
@@ -83,7 +83,9 @@ test "windows/unc" {
     return
   }
   let path = @async.Path::parse("\\\\server\\share\\file.txt")
-  @json.inspect(path.parts(), content=["\\\\server\\share\\", "file.txt"])
+  @json.inspect(path.parts().collect(), content=[
+    "\\\\server\\share\\", "file.txt",
+  ])
   @json.inspect(path.drive(), content="\\\\server\\share")
   @json.inspect(path.root(), content="\\")
   inspect(path, content="\\\\server\\share\\file.txt")
@@ -95,7 +97,7 @@ test "windows/relative" {
     return
   }
   let path = @async.Path::parse("directory/file.txt")
-  @json.inspect(path.parts(), content=["directory", "file.txt"])
+  @json.inspect(path.parts().collect(), content=["directory", "file.txt"])
   @json.inspect(path.drive(), content="")
   @json.inspect(path.root(), content="")
   inspect(path, content="directory\\file.txt")
@@ -204,7 +206,7 @@ test "posix/parts" {
     return
   }
   let path = @async.Path::parse("/usr/bin/file.txt")
-  @json.inspect(path.parts(), content=["/", "usr", "bin", "file.txt"])
+  @json.inspect(path.parts().collect(), content=["/", "usr", "bin", "file.txt"])
   @json.inspect(path.root(), content="/")
   @json.inspect(path.anchor(), content="/")
   inspect(path, content="/usr/bin/file.txt")
@@ -216,7 +218,9 @@ test "posix/impl" {
     return
   }
   let path = @async.Path::parse("//usr//bin//file.txt")
-  @json.inspect(path.parts(), content=["//", "usr", "bin", "file.txt"])
+  @json.inspect(path.parts().to_array(), content=[
+    "//", "usr", "bin", "file.txt",
+  ])
   @json.inspect(path.root(), content="//")
   inspect(path, content="//usr/bin/file.txt")
 }
@@ -252,7 +256,9 @@ test "posix/to_windows_path" {
   let path = @async.Path::parse("//usr//bin//file.txt")
   let windows_path = path.to_windows_path()
   inspect(windows_path, content="\\\\usr\\bin\\file.txt")
-  @json.inspect(windows_path.parts(), content=["\\\\usr\\bin\\", "file.txt"])
+  @json.inspect(windows_path.parts().collect(), content=[
+    "\\\\usr\\bin\\", "file.txt",
+  ])
 }
 
 ///|
@@ -270,7 +276,7 @@ test "posix/relative_to" {
 test "Path::new(String)" {
   let path = @async.Path::new("a/b/c")
   @json.inspect(path, content="a/b/c")
-  @json.inspect(path.parts(), content=["a", "b", "c"])
+  @json.inspect(path.parts().collect(), content=["a", "b", "c"])
   @json.inspect(path.drive(), content="")
   @json.inspect(path.root(), content="")
   @json.inspect(path.anchor(), content="")
@@ -298,7 +304,7 @@ test "Path::to_posix_path" {
   let path = @async.Path::new("a/b/c")
   let posix_path = path.to_posix_path()
   inspect(posix_path, content="a/b/c")
-  @json.inspect(posix_path.parts(), content=["a", "b", "c"])
+  @json.inspect(posix_path.parts().collect(), content=["a", "b", "c"])
   @json.inspect(posix_path.drive(), content="")
   @json.inspect(posix_path.root(), content="")
   @json.inspect(posix_path.anchor(), content="")
@@ -309,7 +315,7 @@ test "Path::to_windows_path" {
   let path = @async.Path::new("a/b/c")
   let windows_path = path.to_windows_path()
   inspect(windows_path, content="a\\b\\c")
-  @json.inspect(windows_path.parts(), content=["a", "b", "c"])
+  @json.inspect(windows_path.parts().collect(), content=["a", "b", "c"])
   @json.inspect(windows_path.drive(), content="")
   @json.inspect(windows_path.root(), content="")
   @json.inspect(windows_path.anchor(), content="")

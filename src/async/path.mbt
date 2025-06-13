@@ -47,8 +47,8 @@ pub impl @json.FromJson for Path with from_json(
 }
 
 ///|
-pub fn Path::parts(self : Path) -> ArrayView[@string.View] {
-  self.parts
+pub fn Path::parts(self : Path) -> @builtin.Iter[@string.View] {
+  self.parts.iter()
 }
 
 ///|
