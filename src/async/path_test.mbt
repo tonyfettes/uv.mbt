@@ -4,10 +4,10 @@ test "relative_to" {
     let async_pipe_mbt = @async.Path::new("src/async/pipe.mbt")
     let fs_mbt = @async.Path::new("src/fs.mbt")
     let relative_path = async_pipe_mbt.relative_to(fs_mbt)
-    inspect(relative_path, content="../async/pipe.mbt")
-    inspect(
+    assert_eq(relative_path, @async.Path::new(["..", "async", "pipe.mbt"]))
+    assert_eq(
       fs_mbt.join(relative_path).resolve().relative_to(@async.cwd()),
-      content="src/async/pipe.mbt",
+      @async.Path::new(["src", "async", "pipe.mbt"]),
     )
   })
 }
