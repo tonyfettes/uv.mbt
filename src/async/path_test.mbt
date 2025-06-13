@@ -19,13 +19,6 @@ test "windows/String" {
   }
   let string : String = "C:\\Windows\\System32\\file.txt"
   let path = @async.Path::parse(string)
-  @json.inspect(path, content={
-    "flavor": "windows",
-    "drive": "C:",
-    "root": "\\",
-    "anchor": "C:\\",
-    "parts": ["C:\\", "Windows", "System32", "file.txt"],
-  })
   @json.inspect(path.parts().collect(), content=[
     "C:\\", "Windows", "System32", "file.txt",
   ])
@@ -41,13 +34,7 @@ test "windows/@string.View" {
   }
   let string : @string.View = "C:/Windows/System32/file.txt"
   let path = @async.Path::parse(string)
-  @json.inspect(path, content={
-    "flavor": "windows",
-    "drive": "C:",
-    "root": "\\",
-    "anchor": "C:\\",
-    "parts": ["C:\\", "Windows", "System32", "file.txt"],
-  })
+  @json.inspect(path, content="C:\\Windows\\System32\\file.txt")
   @json.inspect(path.parts().collect(), content=[
     "C:\\", "Windows", "System32", "file.txt",
   ])
@@ -102,37 +89,13 @@ test "windows/parent" {
   }
   let path = @async.Path::parse("C:\\Windows\\System32\\file.txt")
   let parent = path.parent()
-  @json.inspect(parent, content=[
-    {
-      "flavor": "windows",
-      "drive": "C:",
-      "root": "\\",
-      "anchor": "C:\\",
-      "parts": ["C:\\", "Windows", "System32"],
-    },
-  ])
+  @json.inspect(parent, content="C:\\Windows\\System32")
   let grandparent = parent.bind(fn(parent) { parent.parent() })
-  @json.inspect(grandparent, content=[
-    {
-      "flavor": "windows",
-      "drive": "C:",
-      "root": "\\",
-      "anchor": "C:\\",
-      "parts": ["C:\\", "Windows"],
-    },
-  ])
+  @json.inspect(grandparent, content="C:\\Windows")
   let great_grandparent = grandparent.bind(fn(grandparent) {
     grandparent.parent()
   })
-  @json.inspect(great_grandparent, content=[
-    {
-      "flavor": "windows",
-      "drive": "C:",
-      "root": "\\",
-      "anchor": "C:\\",
-      "parts": ["C:\\"],
-    },
-  ])
+  @json.inspect(great_grandparent, content="C:\\")
   let great_great_grandparent = great_grandparent.bind(fn(great_grandparent) {
     great_grandparent.parent()
   })
@@ -163,13 +126,7 @@ test "windows/relative_to" {
   let path = @async.Path::parse("C:\\Windows\\System32\\file.txt")
   let base = @async.Path::parse("C:\\Windows\\System32")
   let relative_path = path.relative_to(base)
-  @json.inspect(relative_path, content={
-    "flavor": "windows",
-    "drive": "",
-    "root": "",
-    "anchor": "",
-    "parts": ["file.txt"],
-  })
+  @json.inspect(relative_path, content="file.txt")
 }
 
 ///|
