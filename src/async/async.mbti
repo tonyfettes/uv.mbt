@@ -2,6 +2,7 @@ package "tonyfettes/uv/async"
 
 import(
   "moonbitlang/core/buffer"
+  "moonbitlang/core/builtin"
   "moonbitlang/core/bytes"
   "moonbitlang/core/json"
   "moonbitlang/core/string"
@@ -72,7 +73,7 @@ fn[ToPath : ToPath] Path::new(ToPath) -> Self
 async fn Path::open(Self, loc~ : SourceLoc = _) -> File raise
 fn Path::parent(Self) -> Self?
 fn Path::parse(@string.StringView) -> Self
-fn Path::parts(Self) -> ArrayView[@string.StringView]
+fn Path::parts(Self) -> @builtin.Iter[@string.StringView]
 fn Path::read(Self, loc~ : SourceLoc = _) -> Iter[@bytes.View] raise
 fn[ToPath : ToPath] Path::relative_to(Self, ToPath) -> Self
 async fn Path::remove(Self, recursive~ : Bool = .., loc~ : SourceLoc = _) -> Unit raise
