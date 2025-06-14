@@ -351,14 +351,24 @@ pub async fn Path::resolve(self : Path, loc~ : SourceLoc = _) -> Path raise {
     if self.flavor != flavor.val {
       raise SystemError::not_supported(self)
     }
+    let resolved_parts = []
+    for part in self.parts() {
+      if part == ".." {
+        resolved_parts.pop() |> ignore()
+      } else {
+        resolved_parts.push(part)
+      }
+    }
+    let resolved_path = Path::{ ..self, parts: resolved_parts }
     async_suspend_with_error(fn(resolve, reject : (Error) -> Unit) {
       let reject = fn(error : Error) -> Unit {
         match error {
           @uv.Errno(ENOENT) => reject(SystemError::not_found(self))
+          @uv.Errno(ENOTDIR) => reject(SystemError::not_directory(self))
           e => reject(e)
         }
       }
-      uv.fs_realpath(self.to_string(), fn(_, p) { resolve(Path::new(p)) }, fn(
+      uv.fs_realpath(resolved_path.to_string(), fn(_, p) { resolve(Path::new(p)) }, fn(
         _,
         e
       ) {
@@ -374,6 +384,7 @@ pub async fn Path::resolve(self : Path, loc~ : SourceLoc = _) -> Path raise {
 priv enum ErrorInfo {
   Exists(Path)
   IsDirectory(Path)
+  NotDirectory(Path)
   NotEmpty(Path)
   NotFound(Path)
   NotSupported(Path)
@@ -384,6 +395,7 @@ impl Show for ErrorInfo with output(self : ErrorInfo, logger : &Logger) -> Unit 
   match self {
     Exists(path) => logger.write_string("Exists: \{path.to_string()}")
     IsDirectory(path) => logger.write_string("IsDirectory: \{path.to_string()}")
+    NotDirectory(path) => logger.write_string("NotDirectory: \{path.to_string()}")
     NotEmpty(path) => logger.write_string("NotEmpty: \{path.to_string()}")
     NotFound(path) => logger.write_string("NotFound: \{path.to_string()}")
     NotSupported(path) =>
@@ -482,6 +494,10 @@ fn SystemError::exists(
 ///|
 fn SystemError::is_directory(path : Path, loc~ : SourceLoc = _) -> SystemError {
   SystemError(IsDirectory(path), [loc])
+}
+
+fn SystemError::not_directory(path : Path, loc~ : SourceLoc = _) -> SystemError {
+  SystemError(NotDirectory(path), [loc])
 }
 
 ///|
