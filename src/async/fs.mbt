@@ -393,7 +393,7 @@ impl Show for ErrorInfo with output(self : ErrorInfo, logger : &Logger) -> Unit 
 
 ///|
 impl Show for SystemError with output(self : SystemError, logger : &Logger) -> Unit {
-  let SystemError((value, trace)) = self
+  let SystemError(value, trace) = self
   logger.write_string("Trace:\n")
   let uv = try? uv()
   let cwd = try? @uv.cwd()
@@ -448,12 +448,14 @@ impl Show for SystemError with output(self : SystemError, logger : &Logger) -> U
 
 ///|
 impl ToJson for SystemError with to_json(self : SystemError) -> Json {
-  let SystemError((error, trace)) = self
+  let SystemError(error, trace) = self
   { "error": error, "trace": trace.map(fn(loc) { loc.to_string() }) }
 }
 
 ///|
-priv suberror SystemError (ErrorInfo, Array[SourceLoc])
+priv suberror SystemError {
+  SystemError(ErrorInfo, Array[SourceLoc])
+}
 
 ///|
 fn SystemError::new(
@@ -461,7 +463,7 @@ fn SystemError::new(
   trace~ : Array[SourceLoc] = [],
   loc~ : SourceLoc = _
 ) -> SystemError {
-  SystemError((value, [loc, ..trace]))
+  SystemError(value, [loc, ..trace])
 }
 
 ///|
@@ -474,27 +476,27 @@ fn SystemError::exists(
   if caller is Some(caller) {
     locs.push(caller)
   }
-  SystemError((Exists(path), locs))
+  SystemError(Exists(path), locs)
 }
 
 ///|
 fn SystemError::is_directory(path : Path, loc~ : SourceLoc = _) -> SystemError {
-  SystemError((IsDirectory(path), [loc]))
+  SystemError(IsDirectory(path), [loc])
 }
 
 ///|
 fn SystemError::not_empty(path : Path, loc~ : SourceLoc = _) -> SystemError {
-  SystemError((NotEmpty(path), [loc]))
+  SystemError(NotEmpty(path), [loc])
 }
 
 ///|
 fn SystemError::not_found(path : Path, loc~ : SourceLoc = _) -> SystemError {
-  SystemError((NotFound(path), [loc]))
+  SystemError(NotFound(path), [loc])
 }
 
 ///|
 fn SystemError::not_supported(self : Path, loc~ : SourceLoc = _) -> SystemError {
-  SystemError((NotSupported(self), [loc]))
+  SystemError(NotSupported(self), [loc])
 }
 
 ///|
@@ -503,7 +505,7 @@ pub async fn[T] backtrace(
   f : async () -> T raise Error
 ) -> T raise Error {
   f() catch {
-    SystemError((_, trace)) as system_error => {
+    SystemError(_, trace) as system_error => {
       trace.push(loc)
       raise system_error
     }
