@@ -89,13 +89,13 @@ test "windows/parent" {
   }
   let path = @async.Path::parse("C:\\Windows\\System32\\file.txt")
   let parent = path.parent()
-  @json.inspect(parent, content="C:\\Windows\\System32")
+  @json.inspect(parent, content=["C:\\Windows\\System32"])
   let grandparent = parent.bind(fn(parent) { parent.parent() })
-  @json.inspect(grandparent, content="C:\\Windows")
+  @json.inspect(grandparent, content=["C:\\Windows"])
   let great_grandparent = grandparent.bind(fn(grandparent) {
     grandparent.parent()
   })
-  @json.inspect(great_grandparent, content="C:\\")
+  @json.inspect(great_grandparent, content=["C:\\"])
   let great_great_grandparent = great_grandparent.bind(fn(great_grandparent) {
     great_grandparent.parent()
   })
